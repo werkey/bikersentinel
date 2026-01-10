@@ -2,7 +2,7 @@
   "domain": "bikersentinel",
   "name": "BikerSentinel",
   "version": "1.0.0",
-  "documentation": "",
+  "documentation": "https://github.com/werkey/bikersentinel/blob/main/bikersentinel/manifest.json",
   "dependencies": [],
   "codeowners": [],
   "iot_class": "local_polling",
