@@ -26,6 +26,11 @@ BikerSentinel est un moteur d'analyse de données pour **Home Assistant** dédi�
 * **Alerte "Retour du Taf" :** Notification prédictive avant l'heure de départ du travail pour anticiper le trajet retour.
 * **Gear Advisor :** Suggestion de l'équipement optimal (doublure, type de gants, visière) avant le départ.
 
+### 4. Entités générées
+* **Score (0-10) :** La valeur numérique finale.
+* **Statut :** Libellé de confort (Optimal, Critique, etc.).
+* **Justification :** Détail textuel des calculs (ex: "Vent latéral fort, Température sous les 5°C, Risque de pluie détecté").
+
 ---
 
 ## 🚀 Roadmap de Développement
