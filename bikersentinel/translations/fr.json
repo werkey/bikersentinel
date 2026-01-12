@@ -1,0 +1,44 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Configuration BikerSentinel",
+                "description": "Configurez votre profil. Les champs vides utiliseront des moyennes standard.",
+                "data": {
+                    "height": "Taille (cm) [Optionnel]",
+                    "weight": "Poids (kg) [Optionnel]",
+                    "sensitivity": "Frilosité (1=Viking, 5=Frileux)",
+                    "bike_type": "Type de Moto",
+                    "equipment_level": "Niveau d'Équipement",
+                    "riding_context": "Contexte de Trajet (vitesse moyenne)",
+                    "sensor_temp": "Capteur Température",
+                    "sensor_wind": "Capteur Vent",
+                    "sensor_rain": "Capteur Pluie",
+                    "weather_entity": "Météo Globale [Optionnel]"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "score": {
+                "name": "Score Motard"
+            },
+            "status": {
+                "name": "Statut",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Dégradé",
+                    "critical": "Critique",
+                    "dangerous": "Dangereux",
+                    "analyzing": "Analyse...",
+                    "error": "Erreur"
+                }
+            },
+            "reasoning": {
+                "name": "Justification du Score"
+            }
+        }
+    }
+}

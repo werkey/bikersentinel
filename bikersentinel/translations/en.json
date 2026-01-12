@@ -1,0 +1,50 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "BikerSentinel Configuration",
+                "description": "Configure your rider profile. Optional fields will use standard averages.",
+                "data": {
+                    "height": "Height (cm) [Optional]",
+                    "weight": "Weight (kg) [Optional]",
+                    "sensitivity": "Cold Sensitivity (1=Viking, 5=Sensitive)",
+                    "bike_type": "Motorcycle Type",
+                    "equipment_level": "Equipment Level",
+                    "riding_context": "Riding Context (average speed)",
+                    "sensor_temp": "Temperature Sensor",
+                    "sensor_wind": "Wind Speed Sensor",
+                    "sensor_rain": "Rain Sensor (mm)",
+                    "weather_entity": "Global Weather Entity [Optional]"
+                }
+            }
+        },
+        "error": {
+            "missing_sensors": "Please select all required sensors."
+        },
+        "abort": {
+            "already_configured": "Device already configured"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "score": {
+                "name": "Biker Score"
+            },
+            "status": {
+                "name": "Status",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Degraded",
+                    "critical": "Critical",
+                    "dangerous": "Dangerous",
+                    "analyzing": "Analyzing...",
+                    "error": "Error"
+                }
+            },
+            "reasoning": {
+                "name": "Score Reasoning"
+            }
+        }
+    }
+}
