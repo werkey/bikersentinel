@@ -128,7 +128,6 @@ Thank you for your interest in contributing to BikerSentinel! 🏍️
 ## Questions?
 
 - 📖 Read [VERIFICATION_FEATURES.md](VERIFICATION_FEATURES.md) for architecture details
-- 📋 Check [copilot-instructions.md](.github/copilot-instructions.md) for codebase overview
 - 🐛 Open an [issue](https://github.com/werkey/bikersentinel/issues) to discuss ideas
 
 ## Code of Conduct
