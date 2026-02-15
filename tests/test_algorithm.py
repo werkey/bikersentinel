@@ -377,6 +377,63 @@ class TestTripScoreEntities:
         assert score == 0.0
 
 
+class TestTripStatusEntities:
+    """Test cases for Trip Status entities."""
+    
+    @pytest.fixture
+    def mock_hass(self):
+        """Create a mock Home Assistant instance."""
+        hass = MagicMock()
+        hass.states = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_with_trips(self):
+        """Create a config entry with trip configuration."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_with_trips"
+        entry.data = {
+            CONF_TRIP_ENABLED: True,
+            CONF_TRIP_WEATHER_START: "weather.morning",
+            CONF_TRIP_WEATHER_END: "weather.evening",
+            CONF_TRIP_DEPART_TIME: "08:00",
+            CONF_TRIP_RETURN_TIME: "18:00",
+        }
+        return entry
+
+    @pytest.fixture
+    def trip_status_go(self, mock_hass, mock_entry_with_trips):
+        """Create a BikerSentinelTripStatusGo instance."""
+        from bikersentinel.sensor import BikerSentinelTripStatusGo
+        return BikerSentinelTripStatusGo(mock_hass, mock_entry_with_trips)
+
+    @pytest.fixture
+    def trip_status_return(self, mock_hass, mock_entry_with_trips):
+        """Create a BikerSentinelTripStatusReturn instance."""
+        from bikersentinel.sensor import BikerSentinelTripStatusReturn
+        return BikerSentinelTripStatusReturn(mock_hass, mock_entry_with_trips)
+
+    def test_trip_status_go_initialization(self, trip_status_go):
+        """Test that trip status go initializes correctly."""
+        assert "trip_status_go" in trip_status_go._attr_unique_id
+
+    def test_trip_status_return_initialization(self, trip_status_return):
+        """Test that trip status return initializes correctly."""
+        assert "trip_status_return" in trip_status_return._attr_unique_id
+
+    def test_trip_status_go_analyzing_default(self, trip_status_go):
+        """Test trip status defaulting to analyzing."""
+        status = trip_status_go.native_value
+        # Should default to analyzing if no score entity found
+        assert status in ["analyzing", "error"]
+
+    def test_trip_status_return_analyzing_default(self, trip_status_return):
+        """Test trip status defaulting to analyzing."""
+        status = trip_status_return.native_value
+        # Should default to analyzing if no score entity found
+        assert status in ["analyzing", "error"]
+
+
 class TestConfigurationVariations:
     """Test various configuration combinations."""
     

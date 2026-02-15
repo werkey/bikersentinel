@@ -80,14 +80,14 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 
                 # --- SECTION 2: RIDER PROFILE (Required) ---
-                vol.Optional(CONF_HEIGHT, default=DEFAULT_HEIGHT_CM): int,
+                vol.Optional(CONF_HEIGHT, default=DEFAULT_HEIGHT_CM): vol.All(vol.Coerce(int), vol.Range(min=100, max=250)),
                 vol.Optional(CONF_WEIGHT, default=DEFAULT_WEIGHT_KG): int,
                 vol.Required(CONF_BIKE_TYPE, default=DEFAULT_BIKE_TYPE): vol.In(MACHINE_TYPES),
                 vol.Required(CONF_EQUIPMENT, default=DEFAULT_EQUIPMENT): vol.In(EQUIPMENT_LEVELS),
                 vol.Required(CONF_RIDING_CONTEXT, default=DEFAULT_RIDING_CONTEXT): vol.In(RIDING_CONTEXTS.keys()),
                 vol.Required(CONF_SENSITIVITY, default=DEFAULT_SENSITIVITY): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
                 
-                # --- SECTION 3: TRIP FORECASTING (Optional) ---
+                # --- OPTIONAL: TRIP FORECASTING ---
                 vol.Required(CONF_TRIP_ENABLED, default=False): bool,
             }
         )

@@ -91,6 +91,8 @@ async def async_setup_entry(
     if trip_enabled:
         entities.append(BikerSentinelTripScoreGo(hass, entry))
         entities.append(BikerSentinelTripScoreReturn(hass, entry))
+        entities.append(BikerSentinelTripStatusGo(hass, entry))
+        entities.append(BikerSentinelTripStatusReturn(hass, entry))
 
     async_add_entities(entities, True)
 
@@ -564,3 +566,90 @@ class BikerSentinelTripScoreReturn(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip score (return): %s", e)
             return None
+
+
+class BikerSentinelTripStatusGo(SensorEntity):
+    """Trip Status for outbound journey (derived from score)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trip_status_go"
+    _attr_icon = "mdi:bike"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["optimal", "favorable", "degraded", "critical", "dangerous", "analyzing", "error"]
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trip_status_go"
+
+    @property
+    def native_value(self):
+        """Return status based on trip score go."""
+        try:
+            score_entity = None
+            # Find the TripScoreGo entity in the hass state
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_go" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state and state.state not in ["unknown", "unavailable"]:
+                        score = float(state.state)
+                        
+                        if score == 0:
+                            return "dangerous"
+                        elif score <= 2:
+                            return "critical"
+                        elif score <= 4:
+                            return "degraded"
+                        elif score <= 6:
+                            return "favorable"
+                        else:
+                            return "optimal"
+            
+            return "analyzing"
+            
+        except Exception as e:
+            _LOGGER.error("Error calculating trip status (go): %s", e)
+            return "error"
+
+
+class BikerSentinelTripStatusReturn(SensorEntity):
+    """Trip Status for return journey (derived from score)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trip_status_return"
+    _attr_icon = "mdi:bike-fast"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["optimal", "favorable", "degraded", "critical", "dangerous", "analyzing", "error"]
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trip_status_return"
+
+    @property
+    def native_value(self):
+        """Return status based on trip score return."""
+        try:
+            # Find the TripScoreReturn entity in the hass state
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_return" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state and state.state not in ["unknown", "unavailable"]:
+                        score = float(state.state)
+                        
+                        if score == 0:
+                            return "dangerous"
+                        elif score <= 2:
+                            return "critical"
+                        elif score <= 4:
+                            return "degraded"
+                        elif score <= 6:
+                            return "favorable"
+                        else:
+                            return "optimal"
+            
+            return "analyzing"
+            
+        except Exception as e:
+            _LOGGER.error("Error calculating trip status (return): %s", e)
+            return "error"

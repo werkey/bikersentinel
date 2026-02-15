@@ -15,16 +15,16 @@
                     "equipment_level": "Niveau d'Équipement",
                     "riding_context": "Contexte de Trajet Habituel",
                     "sensitivity": "Frilosité (1=Viking, 5=Frileux)",
-                    "trip_score_enabled": "Activer Prévisions de Trajet [Optionnel]"
+                    "trip_score_enabled": "Mode Trajet : (Activez pour configurer vos trajets quotidiens)"
                 }
             },
             "trips": {
                 "title": "BikerSentinel - Configuration des Trajets",
-                "description": "Configurez vos routes quotidiennes",
+                "description": "Configurez vos routes quotidiennes (horaires de départ et retour)",
                 "data": {
-                    "trip_weather_start": "Source Météo (Aller)",
+                    "trip_weather_start": "Source Météo pour l'Aller",
                     "trip_depart_time": "Heure de Départ Habituelle (HH:MM)",
-                    "trip_weather_end": "Source Météo (Retour)",
+                    "trip_weather_end": "Source Météo pour le Retour",
                     "trip_return_time": "Heure de Retour Habituelle (HH:MM)"
                 }
             }
@@ -61,6 +61,30 @@
             },
             "trip_score_return": {
                 "name": "Score Trajet Retour"
+            },
+            "trip_status_go": {
+                "name": "Statut Trajet Aller",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Dégradé",
+                    "critical": "Critique",
+                    "dangerous": "Dangereux",
+                    "analyzing": "Analyse...",
+                    "error": "Erreur"
+                }
+            },
+            "trip_status_return": {
+                "name": "Statut Trajet Retour",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Dégradé",
+                    "critical": "Critique",
+                    "dangerous": "Dangereux",
+                    "analyzing": "Analyse...",
+                    "error": "Erreur"
+                }
             }
         }
     }

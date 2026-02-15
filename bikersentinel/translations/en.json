@@ -15,16 +15,16 @@
                     "equipment_level": "Protective Equipment Level",
                     "riding_context": "Typical Riding Context",
                     "sensitivity": "Cold Sensitivity (1=Viking, 5=Sensitive)",
-                    "trip_score_enabled": "Enable Trip Forecasting [Optional]"
+                    "trip_score_enabled": "Trip Forecasting Mode (Enable to configure daily routes)"
                 }
             },
             "trips": {
                 "title": "BikerSentinel - Trip Configuration",
-                "description": "Configure your daily commute routes",
+                "description": "Configure your daily commute routes (departure & return times)",
                 "data": {
-                    "trip_weather_start": "Weather Source (Outbound)",
+                    "trip_weather_start": "Weather Source for Outbound Route",
                     "trip_depart_time": "Typical Departure Time (HH:MM)",
-                    "trip_weather_end": "Weather Source (Return)",
+                    "trip_weather_end": "Weather Source for Return Route",
                     "trip_return_time": "Typical Return Time (HH:MM)"
                 }
             }
@@ -61,6 +61,30 @@
             },
             "trip_score_return": {
                 "name": "Return Trip Score"
+            },
+            "trip_status_go": {
+                "name": "Outbound Trip Status",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Degraded",
+                    "critical": "Critical",
+                    "dangerous": "Dangerous",
+                    "analyzing": "Analyzing...",
+                    "error": "Error"
+                }
+            },
+            "trip_status_return": {
+                "name": "Return Trip Status",
+                "state": {
+                    "optimal": "Optimal",
+                    "favorable": "Favorable",
+                    "degraded": "Degraded",
+                    "critical": "Critical",
+                    "dangerous": "Dangerous",
+                    "analyzing": "Analyzing...",
+                    "error": "Error"
+                }
             }
         }
     }

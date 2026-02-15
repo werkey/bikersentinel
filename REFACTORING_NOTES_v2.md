@@ -1,5 +1,25 @@
 # BikerSentinel v2.0.0 - UX Redesign Refactoring
 
+## Latest Update - User Feedback Improvements
+
+Based on user feedback, the following improvements were made to clarity and completeness:
+
+### Configuration Flow Improvements
+- **Trip Mode Label**: Changed unclear checkbox to descriptive label: "Mode Trajet : (Activez pour configurer vos trajets quotidiens)" 
+- **Trip Configuration Step**: Clarified interface explains that trips are configured with:
+  - Weather source for each route (outbound/return)
+  - Typical departure and return times
+  - Route is defined by time + weather source
+
+### Entity Additions
+Added status entities for trip forecasting:
+- **BikerSentinelTripStatusGo**: Outbound trip status (Optimal/Favorable/Degraded/Critical/Dangerous)
+- **BikerSentinelTripStatusReturn**: Return trip status (with same scale)
+
+These provide user-friendly status categorization alongside numeric score values.
+
+---
+
 ## Summary
 
 Complete refactoring of BikerSentinel v2.0.0 based on user feedback from actual Home Assistant testing. The integration was technically working (74/74 tests passing) but had poor UX with too many configuration options and exposed entities, making it confusing for typical users.
@@ -43,13 +63,17 @@ Removed all feature toggle constants (these features are now always-on internall
 - BikerSentinelCommuteAlert ❌ REMOVED
 ```
 
-**After:** Only 4-5 essential entities exposed
+**After:** Only 4-7 essential entities exposed (depends on trip mode)
 ```
 ✅ BikerSentinelScore (0-10 numeric rating)
 ✅ BikerSentinelStatus (Optimal/Favorable/Degraded/Critical/Dangerous)
 ✅ BikerSentinelReasoning (Explanation of score)
-✅ BikerSentinelTripScoreGo (If trips enabled - outbound journey score)
-✅ BikerSentinelTripScoreReturn (If trips enabled - return journey score)
+
+If Trip Mode Enabled:
+✅ BikerSentinelTripScoreGo (0-10 numeric for outbound)
+✅ BikerSentinelTripStatusGo (Optimal/Favorable/Degraded/Critical/Dangerous for outbound)
+✅ BikerSentinelTripScoreReturn (0-10 numeric for return)
+✅ BikerSentinelTripStatusReturn (Optimal/Favorable/Degraded/Critical/Dangerous for return)
 ```
 
 **Internal Features (Hidden):**
