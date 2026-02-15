@@ -36,6 +36,7 @@ from .const import (
     CONF_TRIP_RETURN_TIME,
     CONF_NIGHT_MODE_ENABLED,
     CONF_PRECIP_HISTORY_ENABLED,
+    CONF_TEMP_HUMIDITY_TRENDS_ENABLED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Night Mode & Features
                 vol.Required(CONF_NIGHT_MODE_ENABLED, default=True): bool,
                 vol.Required(CONF_PRECIP_HISTORY_ENABLED, default=True): bool,
+                vol.Required(CONF_TEMP_HUMIDITY_TRENDS_ENABLED, default=True): bool,
                 
                 # Trip Score Configuration (Optional)
                 vol.Required(CONF_TRIP_ENABLED, default=False): bool,

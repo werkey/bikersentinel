@@ -27,6 +27,9 @@ CONF_NIGHT_MODE_ENABLED = "night_mode_enabled"
 # Precipitation History
 CONF_PRECIP_HISTORY_ENABLED = "precip_history_enabled"
 
+# Temperature & Humidity Trends
+CONF_TEMP_HUMIDITY_TRENDS_ENABLED = "temp_humidity_trends_enabled"
+
 # Defaults ( Metric System )
 DEFAULT_HEIGHT_CM = 175
 DEFAULT_WEIGHT_KG = 80
@@ -96,4 +99,26 @@ ROAD_STATE_MALUS = {
     "sludge": -6.0,
     "icy": -8.0,
     "unknown": 0.0,
+}
+
+# Temperature Trend Detection
+TEMP_HISTORY_WINDOW = 6  # Track last 6 readings for trend analysis
+TEMP_DROP_THRESHOLD = 5.0  # Sudden drop > 5°C = risk of icing
+TEMP_TREND_MALUS = {
+    "dropping": -2.0,  # Temperature falling rapidly
+    "stable": 0.0,     # Temperature stable
+    "rising": 0.5,     # Temperature rising (safer)
+}
+
+# Humidity Impact on Visibility
+HUMIDITY_THRESHOLDS = {
+    "low": (0, 30),         # Good visibility
+    "moderate": (30, 70),   # Normal visibility
+    "high": (70, 100),      # Reduced visibility (fog risk)
+}
+
+HUMIDITY_MALUS = {
+    "low": 0.0,
+    "moderate": 0.0,
+    "high": -1.5,  # High humidity increases fog risk
 }

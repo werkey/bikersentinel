@@ -19,6 +19,11 @@ from .const import (
     RIDING_CONTEXTS,
     NIGHT_MODE_MALUS,
     PRECIP_HISTORY_WINDOW,
+    TEMP_HISTORY_WINDOW,
+    TEMP_DROP_THRESHOLD,
+    TEMP_TREND_MALUS,
+    HUMIDITY_THRESHOLDS,
+    HUMIDITY_MALUS,
     CONF_HEIGHT,
     CONF_WEIGHT,
     CONF_BIKE_TYPE,
@@ -36,6 +41,7 @@ from .const import (
     CONF_TRIP_RETURN_TIME,
     CONF_NIGHT_MODE_ENABLED,
     CONF_PRECIP_HISTORY_ENABLED,
+    CONF_TEMP_HUMIDITY_TRENDS_ENABLED,
     DEFAULT_HEIGHT_CM,
     DEFAULT_WEIGHT_KG,
     DEFAULT_BIKE_TYPE,
@@ -63,6 +69,7 @@ async def async_setup_entry(
     night_mode_enabled = entry.data.get(CONF_NIGHT_MODE_ENABLED, True)
     precip_history_enabled = entry.data.get(CONF_PRECIP_HISTORY_ENABLED, True)
     trip_enabled = entry.data.get(CONF_TRIP_ENABLED, False)
+    temp_humidity_enabled = entry.data.get(CONF_TEMP_HUMIDITY_TRENDS_ENABLED, False)
 
     # Create the Score entity and store in runtime data for Status/Reasoning
     score_entity = BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context)
@@ -86,6 +93,10 @@ async def async_setup_entry(
     
     if trip_enabled:
         entities.append(BikerSentinelTripScore(hass, entry))
+    
+    if temp_humidity_enabled:
+        entities.append(BikerSentinelTemperatureTrend(hass, entry))
+        entities.append(BikerSentinelHumidityTrend(hass, entry))
 
     entry.runtime_data = runtime_data
     async_add_entities(entities, True)
@@ -558,4 +569,151 @@ class BikerSentinelTripScore(SensorEntity):
             "return_time": self._entry.data.get(CONF_TRIP_RETURN_TIME),
             "start_location": self._entry.data.get(CONF_TRIP_WEATHER_START),
             "end_location": self._entry.data.get(CONF_TRIP_WEATHER_END),
+        }
+
+
+class BikerSentinelTemperatureTrend(SensorEntity):
+    """Monitor temperature trends and sudden drops for icing risk."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "temp_trend"
+    _attr_icon = "mdi:thermometer-alert"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_temp_trend"
+        self._temp_history = []  # List of recent temperature values
+
+    def _get_temperature(self) -> float:
+        """Get current temperature from configured sensor."""
+        try:
+            temp_entity = self._entry.data.get(CONF_SENSOR_TEMP)
+            if not temp_entity:
+                return 10.0  # Default safe temp
+            
+            temp_state = self._hass.states.get(temp_entity)
+            if not temp_state or temp_state.state in ["unknown", "unavailable"]:
+                return 10.0
+            
+            return float(temp_state.state)
+        except Exception:
+            return 10.0
+
+    def _analyze_trend(self) -> tuple:
+        """
+        Analyze temperature trend.
+        
+        Returns: (trend: str, malus: float, risk_level: str)
+        """
+        try:
+            current_temp = self._get_temperature()
+            
+            # Keep history window
+            self._temp_history.append(current_temp)
+            if len(self._temp_history) > TEMP_HISTORY_WINDOW:
+                self._temp_history.pop(0)
+            
+            if len(self._temp_history) < 2:
+                return ("initializing", 0.0, "normal")
+            
+            # Check for sudden drop
+            recent_temps = self._temp_history[-3:]  # Last 3 readings
+            if len(recent_temps) >= 2:
+                temp_drop = recent_temps[0] - recent_temps[-1]
+                
+                if temp_drop > TEMP_DROP_THRESHOLD:
+                    # Rapid temperature drop = icing risk
+                    return ("dropping", -2.0, "warning")
+                elif temp_drop < -TEMP_DROP_THRESHOLD:
+                    # Rising temperature = improving conditions
+                    return ("rising", 0.5, "improving")
+            
+            # Check if below freezing
+            if current_temp < 0:
+                return ("freezing", 0.0, "caution")
+            
+            return ("stable", 0.0, "normal")
+        
+        except Exception as e:
+            _LOGGER.error("Error analyzing temperature trend: %s", e)
+            return ("unknown", 0.0, "unknown")
+
+    @property
+    def native_value(self):
+        """Return current trend status."""
+        trend, _, _ = self._analyze_trend()
+        return trend
+
+    @property
+    def extra_state_attributes(self):
+        """Return trend analysis details."""
+        trend, malus, risk = self._analyze_trend()
+        current_temp = self._get_temperature()
+        
+        return {
+            "current_temp": round(current_temp, 1),
+            "malus": malus,
+            "risk_level": risk,
+            "history_length": len(self._temp_history),
+        }
+
+
+class BikerSentinelHumidityTrend(SensorEntity):
+    """Monitor humidity levels for visibility impact."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "humidity_trend"
+    _attr_icon = "mdi:water-percent"
+    _attr_unit_of_measurement = "%"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_humidity_trend"
+
+    def _get_humidity(self) -> float:
+        """Get humidity from weather entity or sensor."""
+        try:
+            # Try to get humidity from weather entity
+            weather_entity = self._entry.data.get(CONF_WEATHER_ENTITY)
+            if weather_entity:
+                weather_state = self._hass.states.get(weather_entity)
+                if weather_state:
+                    humidity = weather_state.attributes.get("humidity")
+                    if humidity:
+                        return float(humidity)
+            
+            # Default if not available
+            return 50.0
+        except Exception:
+            return 50.0
+
+    def _infer_visibility_impact(self, humidity: float) -> tuple:
+        """
+        Infer visibility impact from humidity.
+        
+        Returns: (visibility_status: str, malus: float)
+        """
+        if humidity >= 70:
+            return ("high", -1.5)  # Fog/mist risk
+        elif humidity >= 30:
+            return ("moderate", 0.0)  # Normal conditions
+        else:
+            return ("low", 0.0)  # Good visibility
+
+    @property
+    def native_value(self):
+        """Return current humidity value."""
+        return round(self._get_humidity(), 1)
+
+    @property
+    def extra_state_attributes(self):
+        """Return humidity analysis."""
+        humidity = self._get_humidity()
+        visibility, malus = self._infer_visibility_impact(humidity)
+        
+        return {
+            "visibility": visibility,
+            "visibility_malus": malus,
         }

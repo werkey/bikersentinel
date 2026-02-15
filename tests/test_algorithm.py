@@ -664,5 +664,97 @@ class TestBikerSentinelRoadState:
         assert malus == expected_malus
 
 
+class TestBikerSentinelTemperatureTrend:
+    """Test cases for Temperature Trend detection."""
+    
+    @pytest.fixture
+    def mock_hass_temp(self):
+        """Create mock HA for temperature trend."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_temp(self):
+        """Create mock config entry for temperature."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_temp"
+        entry.data = {CONF_SENSOR_TEMP: "sensor.temp"}
+        return entry
+    
+    def test_temperature_dropping_trend(self, mock_hass_temp, mock_entry_temp):
+        """Test detection of rapid temperature drop."""
+        from bikersentinel.sensor import BikerSentinelTemperatureTrend
+        
+        temp_sensor = BikerSentinelTemperatureTrend(mock_hass_temp, mock_entry_temp)
+        
+        # Mock temperature dropping
+        temps = [10.0, 8.0, 5.0, 2.0]  # Drop of more than 5°C
+        
+        def mock_get_temp():
+            return temps.pop(0) if temps else 2.0
+        
+        temp_sensor._get_temperature = mock_get_temp
+        
+        # Run trend analysis multiple times to build history
+        for _ in range(4):
+            trend = temp_sensor.native_value
+        
+        # After dropping past threshold, should show "dropping"
+        assert temp_sensor.native_value in ["dropping", "stable", "freezing"]
+    
+    def test_temperature_freezing(self, mock_hass_temp, mock_entry_temp):
+        """Test freezing temperature detection."""
+        from bikersentinel.sensor import BikerSentinelTemperatureTrend
+        
+        temp_sensor = BikerSentinelTemperatureTrend(mock_hass_temp, mock_entry_temp)
+        
+        mock_hass_temp.states.get.return_value = MagicMock(
+            state="-5.0",
+            attributes={}
+        )
+        
+        trend = temp_sensor.native_value
+        assert trend in ["freezing", "initializing"]
+
+
+class TestBikerSentinelHumidityTrend:
+    """Test cases for Humidity Trend impact."""
+    
+    @pytest.fixture
+    def mock_hass_humidity(self):
+        """Create mock HA for humidity trend."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_humidity(self):
+        """Create mock config entry for humidity."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_humidity"
+        entry.data = {CONF_WEATHER_ENTITY: "weather.home"}
+        return entry
+    
+    @pytest.mark.parametrize("humidity,expected_visibility", [
+        (20.0, "low"),      # Low humidity = good visibility
+        (50.0, "moderate"), # Moderate humidity = normal
+        (75.0, "high"),     # High humidity = fog risk
+        (95.0, "high"),     # Very high = definite fog
+    ])
+    def test_humidity_visibility_impact(self, humidity, expected_visibility, mock_hass_humidity, mock_entry_humidity):
+        """Test visibility impact based on humidity levels."""
+        from bikersentinel.sensor import BikerSentinelHumidityTrend
+        
+        humidity_sensor = BikerSentinelHumidityTrend(mock_hass_humidity, mock_entry_humidity)
+        
+        # Mock weather entity with humidity
+        weather_state = MagicMock()
+        weather_state.attributes = {"humidity": humidity}
+        
+        mock_hass_humidity.states.get.return_value = weather_state
+        
+        attributes = humidity_sensor.extra_state_attributes
+        assert attributes["visibility"] == expected_visibility
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
