@@ -91,8 +91,10 @@ async def async_setup_entry(
     if trip_enabled:
         entities.append(BikerSentinelTripScoreGo(hass, entry))
         entities.append(BikerSentinelTripScoreReturn(hass, entry))
-        entities.append(BikerSentinelTripStatusGo(hass, entry))
+        entities.append(BikerSentinelTripReasoningGo(hass, entry))
+        entities.append(BikerSentinelTripScoreReturn(hass, entry))
         entities.append(BikerSentinelTripStatusReturn(hass, entry))
+        entities.append(BikerSentinelTripReasoningReturn(hass, entry))
 
     async_add_entities(entities, True)
 
@@ -479,7 +481,7 @@ class BikerSentinelTripScoreGo(SensorEntity):
 
     @property
     def native_value(self):
-        """Calculate score for outbound trip."""
+        """Calculate score for outbound trip (based on destination weather)."""
         try:
             # Get trip configuration
             weather_entity = self._entry.data.get(CONF_TRIP_WEATHER_START)
@@ -488,26 +490,71 @@ class BikerSentinelTripScoreGo(SensorEntity):
             if not weather_entity or not depart_time_str:
                 return None
             
-            # Parse departure time
-            h, m = map(int, depart_time_str.split(":"))
-            depart_time = time(h, m)
-            
-            # Get weather forecast for departure time
+            # Get weather forecast at destination
             weather_state = self._hass.states.get(weather_entity)
             if not weather_state:
                 return None
             
-            # For now, use current weather as proxy for forecast
-            # In production, would integrate with forecast data
-            score = 7.0  # Base trip score
+            reasons = []
+            score = 8.0  # Base trip score (good conditions assumed)
             
-            # Apply current conditions
+            # Safety vetoes
             if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
+                self._attr_extra_state_attributes = {"reasons": ["Dangerous Weather"]}
                 return 0.0
-            elif weather_state.state == "rainy":
+            
+            # Weather conditions
+            if weather_state.state == "rainy":
                 score -= 2.0
+                reasons.append("Rain (-2)")
             elif weather_state.state == "fog":
                 score -= 1.5
+                reasons.append("Fog (-1.5)")
+            elif weather_state.state == "cloudy":
+                score -= 0.5
+                reasons.append("Cloudy (-0.5)")
+            
+            # Temperature data (if available from weather entity)
+            try:
+                temp = weather_state.attributes.get("temperature")
+                if temp:
+                    temp = float(temp)
+                    if temp < 5:
+                        score -= 1.5
+                        reasons.append(f"Cold {temp}°C (-1.5)")
+                    elif temp > 30:
+                        score -= 0.5
+                        reasons.append(f"Hot {temp}°C (-0.5)")
+            except Exception:
+                pass
+            
+            # Wind data (if available)
+            try:
+                wind = weather_state.attributes.get("wind_speed")
+                if wind:
+                    wind = float(wind)
+                    if wind > 40:
+                        score -= 1.0
+                        reasons.append(f"Wind {wind}km/h (-1.0)")
+            except Exception:
+                pass
+            
+            # Humidity/Visibility
+            try:
+                humidity = weather_state.attributes.get("humidity")
+                if humidity:
+                    humidity = float(humidity)
+                    if humidity > 85:
+                        score -= 1.0
+                        reasons.append(f"High Humidity {humidity}% (-1.0)")
+            except Exception:
+                pass
+            
+            # Store reasons in attributes
+            self._attr_extra_state_attributes = {
+                "reasons": reasons if reasons else ["Good conditions"],
+                "destination": weather_entity
+            }
             
             return round(max(0, min(10, score)), 1)
             
@@ -532,7 +579,7 @@ class BikerSentinelTripScoreReturn(SensorEntity):
 
     @property
     def native_value(self):
-        """Calculate score for return trip."""
+        """Calculate score for return trip (based on destination weather)."""
         try:
             # Get trip configuration
             weather_entity = self._entry.data.get(CONF_TRIP_WEATHER_END)
@@ -541,25 +588,71 @@ class BikerSentinelTripScoreReturn(SensorEntity):
             if not weather_entity or not return_time_str:
                 return None
             
-            # Parse return time
-            h, m = map(int, return_time_str.split(":"))
-            return_time = time(h, m)
-            
-            # Get weather forecast for return time
+            # Get weather forecast at destination
             weather_state = self._hass.states.get(weather_entity)
             if not weather_state:
                 return None
             
-            # For now, use current weather as proxy for forecast
-            score = 7.0  # Base trip score
+            reasons = []
+            score = 8.0  # Base trip score (good conditions assumed)
             
-            # Apply current conditions
+            # Safety vetoes
             if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
+                self._attr_extra_state_attributes = {"reasons": ["Dangerous Weather"]}
                 return 0.0
-            elif weather_state.state == "rainy":
+            
+            # Weather conditions
+            if weather_state.state == "rainy":
                 score -= 2.0
+                reasons.append("Rain (-2)")
             elif weather_state.state == "fog":
                 score -= 1.5
+                reasons.append("Fog (-1.5)")
+            elif weather_state.state == "cloudy":
+                score -= 0.5
+                reasons.append("Cloudy (-0.5)")
+            
+            # Temperature data
+            try:
+                temp = weather_state.attributes.get("temperature")
+                if temp:
+                    temp = float(temp)
+                    if temp < 5:
+                        score -= 1.5
+                        reasons.append(f"Cold {temp}°C (-1.5)")
+                    elif temp > 30:
+                        score -= 0.5
+                        reasons.append(f"Hot {temp}°C (-0.5)")
+            except Exception:
+                pass
+            
+            # Wind data
+            try:
+                wind = weather_state.attributes.get("wind_speed")
+                if wind:
+                    wind = float(wind)
+                    if wind > 40:
+                        score -= 1.0
+                        reasons.append(f"Wind {wind}km/h (-1.0)")
+            except Exception:
+                pass
+            
+            # Humidity/Visibility
+            try:
+                humidity = weather_state.attributes.get("humidity")
+                if humidity:
+                    humidity = float(humidity)
+                    if humidity > 85:
+                        score -= 1.0
+                        reasons.append(f"High Humidity {humidity}% (-1.0)")
+            except Exception:
+                pass
+            
+            # Store reasons in attributes
+            self._attr_extra_state_attributes = {
+                "reasons": reasons if reasons else ["Good conditions"],
+                "destination": weather_entity
+            }
             
             return round(max(0, min(10, score)), 1)
             
@@ -653,3 +746,101 @@ class BikerSentinelTripStatusReturn(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip status (return): %s", e)
             return "error"
+
+
+class BikerSentinelTripReasoningGo(SensorEntity):
+    """Trip Reasoning for outbound journey (explains score factors)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trip_reasoning_go"
+    _attr_icon = "mdi:bike"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trip_reasoning_go"
+
+    @property
+    def native_value(self):
+        """Return the primary reason affecting the outbound trip score."""
+        try:
+            # Find the TripScoreGo entity to get reasons
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_go" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state:
+                        reasons = state.attributes.get("reasons", [])
+                        if reasons:
+                            return reasons[0]
+                        return "Good conditions"
+            
+            return "Analyzing..."
+            
+        except Exception as e:
+            _LOGGER.error("Error calculating trip reasoning (go): %s", e)
+            return "Calculating..."
+
+    @property
+    def extra_state_attributes(self):
+        """Return all reasons as attributes."""
+        try:
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_go" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state:
+                        return {
+                            "reasons": state.attributes.get("reasons", []),
+                            "destination": state.attributes.get("destination", "unknown"),
+                        }
+            return {}
+        except Exception:
+            return {}
+
+
+class BikerSentinelTripReasoningReturn(SensorEntity):
+    """Trip Reasoning for return journey (explains score factors)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trip_reasoning_return"
+    _attr_icon = "mdi:bike-fast"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trip_reasoning_return"
+
+    @property
+    def native_value(self):
+        """Return the primary reason affecting the return trip score."""
+        try:
+            # Find the TripScoreReturn entity to get reasons
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_return" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state:
+                        reasons = state.attributes.get("reasons", [])
+                        if reasons:
+                            return reasons[0]
+                        return "Good conditions"
+            
+            return "Analyzing..."
+            
+        except Exception as e:
+            _LOGGER.error("Error calculating trip reasoning (return): %s", e)
+            return "Calculating..."
+
+    @property
+    def extra_state_attributes(self):
+        """Return all reasons as attributes."""
+        try:
+            for entity_id in self._hass.states.entity_ids():
+                if "trip_score_return" in entity_id:
+                    state = self._hass.states.get(entity_id)
+                    if state:
+                        return {
+                            "reasons": state.attributes.get("reasons", []),
+                            "destination": state.attributes.get("destination", "unknown"),
+                        }
+            return {}
+        except Exception:
+            return {}

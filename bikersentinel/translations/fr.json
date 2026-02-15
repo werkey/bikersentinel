@@ -20,11 +20,11 @@
             },
             "trips": {
                 "title": "BikerSentinel - Configuration des Trajets",
-                "description": "Configurez vos routes quotidiennes (horaires de départ et retour)",
+                "description": "Configurez vos trajets quotidiens (météo à la destination, horaires)",
                 "data": {
-                    "trip_weather_start": "Source Météo pour l'Aller",
+                    "trip_weather_start": "Météo à la Destination (Aller) - ex: météo du bureau",
                     "trip_depart_time": "Heure de Départ Habituelle (HH:MM)",
-                    "trip_weather_end": "Source Météo pour le Retour",
+                    "trip_weather_end": "Météo à la Destination (Retour) - ex: météo de la maison",
                     "trip_return_time": "Heure de Retour Habituelle (HH:MM)"
                 }
             }
@@ -85,6 +85,12 @@
                     "analyzing": "Analyse...",
                     "error": "Erreur"
                 }
+            },
+            "trip_reasoning_go": {
+                "name": "Justification Trajet Aller"
+            },
+            "trip_reasoning_return": {
+                "name": "Justification Trajet Retour"
             }
         }
     }
