@@ -351,6 +351,11 @@ class TestTripScoreEntities:
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
+        # Initialize runtime_data with trip score entities
+        entry.runtime_data = {
+            "trip_score_go": None,
+            "trip_score_return": None,
+        }
         return entry
 
     @pytest.fixture
@@ -398,6 +403,11 @@ class TestTripStatusEntities:
             CONF_TRIP_OFFICE_WEATHER: "weather.evening",
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
+        }
+        # Initialize runtime_data with trip score entities
+        entry.runtime_data = {
+            "trip_score_go": None,
+            "trip_score_return": None,
         }
         return entry
 
@@ -455,6 +465,11 @@ class TestTripReasoningEntities:
             CONF_TRIP_OFFICE_WEATHER: "weather.home",
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
+        }
+        # Initialize runtime_data with trip score entities
+        entry.runtime_data = {
+            "trip_score_go": None,
+            "trip_score_return": None,
         }
         return entry
 

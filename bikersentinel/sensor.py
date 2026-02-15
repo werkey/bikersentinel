@@ -77,22 +77,33 @@ async def async_setup_entry(
         hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context
     )
     
-    # Store reference for Status and Reasoning sensors
-    entry.runtime_data = {"score_entity": score_entity}
+    # Create trip score entities if enabled (needed for status/reasoning references)
+    trip_score_go = None
+    trip_score_return = None
+    if trip_enabled:
+        trip_score_go = BikerSentinelTripScoreGo(hass, entry)
+        trip_score_return = BikerSentinelTripScoreReturn(hass, entry)
+    
+    # Store references for Status and Reasoning sensors
+    entry.runtime_data = {
+        "score_entity": score_entity,
+        "trip_score_go": trip_score_go,
+        "trip_score_return": trip_score_return,
+    }
 
-    # Essential entities only
+    # Essential entities: Score, Status, Reasoning
     entities = [
         score_entity,
         BikerSentinelStatus(hass, entry),
         BikerSentinelReasoning(hass, entry),
     ]
     
-    # Only add trip scores if enabled
+    # Only add trip entities if enabled (9 total: 3 instant + 3 outbound + 3 return)
     if trip_enabled:
-        entities.append(BikerSentinelTripScoreGo(hass, entry))
-        entities.append(BikerSentinelTripScoreReturn(hass, entry))
+        entities.append(trip_score_go)
+        entities.append(BikerSentinelTripStatusGo(hass, entry))
         entities.append(BikerSentinelTripReasoningGo(hass, entry))
-        entities.append(BikerSentinelTripScoreReturn(hass, entry))
+        entities.append(trip_score_return)
         entities.append(BikerSentinelTripStatusReturn(hass, entry))
         entities.append(BikerSentinelTripReasoningReturn(hass, entry))
 
@@ -112,6 +123,10 @@ class BikerSentinelScore(SensorEntity):
         """Initialize the score sensor."""
         self._hass = hass
         self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_score"
+        self._attr_extra_state_attributes = {}  # Initialize attribute storage
+        
+        # User profile parameters
         self._attr_unique_id = f"{entry.entry_id}_score"
         
         # Initialize tracking for trends
@@ -369,6 +384,11 @@ class BikerSentinelScore(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating BikerSentinel score: %s", e)
             return None
+    
+    @property
+    def extra_state_attributes(self):
+        """Return extra state attributes with all score factors."""
+        return self._attr_extra_state_attributes
 
 
 class BikerSentinelStatus(SensorEntity):
@@ -478,6 +498,7 @@ class BikerSentinelTripScoreGo(SensorEntity):
         self._hass = hass
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_trip_score_go"
+        self._attr_extra_state_attributes = {}  # Initialize attribute storage
 
     @property
     def native_value(self):
@@ -523,6 +544,11 @@ class BikerSentinelTripScoreGo(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip score (go): %s", e)
             return None
+    
+    @property
+    def extra_state_attributes(self):
+        """Return extra state attributes with trip details."""
+        return self._attr_extra_state_attributes
     
     def _analyze_weather(self, weather_state, location_name):
         """Analyze weather conditions and return malus + reasons."""
@@ -596,6 +622,7 @@ class BikerSentinelTripScoreReturn(SensorEntity):
         self._hass = hass
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_trip_score_return"
+        self._attr_extra_state_attributes = {}  # Initialize attribute storage
 
     @property
     def native_value(self):
@@ -641,6 +668,11 @@ class BikerSentinelTripScoreReturn(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip score (return): %s", e)
             return None
+    
+    @property
+    def extra_state_attributes(self):
+        """Return extra state attributes with trip details."""
+        return self._attr_extra_state_attributes
     
     def _analyze_weather(self, weather_state, location_name):
         """Analyze weather conditions and return malus + reasons."""
@@ -719,27 +751,26 @@ class BikerSentinelTripStatusGo(SensorEntity):
     def native_value(self):
         """Return status based on trip score go."""
         try:
-            score_entity = None
-            # Find the TripScoreGo entity in the hass state
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_go" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state and state.state not in ["unknown", "unavailable"]:
-                        score = float(state.state)
-                        
-                        if score == 0:
-                            return "dangerous"
-                        elif score <= 2:
-                            return "critical"
-                        elif score <= 4:
-                            return "degraded"
-                        elif score <= 6:
-                            return "favorable"
-                        else:
-                            return "optimal"
+            trip_score_go = self._entry.runtime_data.get("trip_score_go")
+            if not trip_score_go:
+                return "analyzing"
             
-            return "analyzing"
+            score = trip_score_go.native_value
             
+            if score is None:
+                return "analyzing"
+            
+            if score == 0:
+                return "dangerous"
+            elif score <= 2:
+                return "critical"
+            elif score <= 4:
+                return "degraded"
+            elif score <= 6:
+                return "favorable"
+            else:
+                return "optimal"
+                
         except Exception as e:
             _LOGGER.error("Error calculating trip status (go): %s", e)
             return "error"
@@ -763,26 +794,26 @@ class BikerSentinelTripStatusReturn(SensorEntity):
     def native_value(self):
         """Return status based on trip score return."""
         try:
-            # Find the TripScoreReturn entity in the hass state
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_return" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state and state.state not in ["unknown", "unavailable"]:
-                        score = float(state.state)
-                        
-                        if score == 0:
-                            return "dangerous"
-                        elif score <= 2:
-                            return "critical"
-                        elif score <= 4:
-                            return "degraded"
-                        elif score <= 6:
-                            return "favorable"
-                        else:
-                            return "optimal"
+            trip_score_return = self._entry.runtime_data.get("trip_score_return")
+            if not trip_score_return:
+                return "analyzing"
             
-            return "analyzing"
+            score = trip_score_return.native_value
             
+            if score is None:
+                return "analyzing"
+            
+            if score == 0:
+                return "dangerous"
+            elif score <= 2:
+                return "critical"
+            elif score <= 4:
+                return "degraded"
+            elif score <= 6:
+                return "favorable"
+            else:
+                return "optimal"
+                
         except Exception as e:
             _LOGGER.error("Error calculating trip status (return): %s", e)
             return "error"
@@ -804,17 +835,16 @@ class BikerSentinelTripReasoningGo(SensorEntity):
     def native_value(self):
         """Return the primary reason affecting the outbound trip score."""
         try:
-            # Find the TripScoreGo entity to get reasons
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_go" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state:
-                        reasons = state.attributes.get("reasons", [])
-                        if reasons:
-                            return reasons[0]
-                        return "Good conditions"
+            trip_score_go = self._entry.runtime_data.get("trip_score_go")
+            if not trip_score_go:
+                return "Analyzing..."
             
-            return "Analyzing..."
+            # Get reasons from the score entity's attributes
+            reasons = trip_score_go.extra_state_attributes.get("reasons", [])
+            
+            if reasons:
+                return reasons[0]
+            return "Good conditions"
             
         except Exception as e:
             _LOGGER.error("Error calculating trip reasoning (go): %s", e)
@@ -824,15 +854,15 @@ class BikerSentinelTripReasoningGo(SensorEntity):
     def extra_state_attributes(self):
         """Return all reasons as attributes."""
         try:
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_go" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state:
-                        return {
-                            "reasons": state.attributes.get("reasons", []),
-                            "destination": state.attributes.get("destination", "unknown"),
-                        }
-            return {}
+            trip_score_go = self._entry.runtime_data.get("trip_score_go")
+            if not trip_score_go:
+                return {}
+            
+            return {
+                "reasons": trip_score_go.extra_state_attributes.get("reasons", []),
+                "home_location": trip_score_go.extra_state_attributes.get("home_location", "unknown"),
+                "office_location": trip_score_go.extra_state_attributes.get("office_location", "unknown"),
+            }
         except Exception:
             return {}
 
@@ -853,17 +883,16 @@ class BikerSentinelTripReasoningReturn(SensorEntity):
     def native_value(self):
         """Return the primary reason affecting the return trip score."""
         try:
-            # Find the TripScoreReturn entity to get reasons
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_return" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state:
-                        reasons = state.attributes.get("reasons", [])
-                        if reasons:
-                            return reasons[0]
-                        return "Good conditions"
+            trip_score_return = self._entry.runtime_data.get("trip_score_return")
+            if not trip_score_return:
+                return "Analyzing..."
             
-            return "Analyzing..."
+            # Get reasons from the score entity's attributes
+            reasons = trip_score_return.extra_state_attributes.get("reasons", [])
+            
+            if reasons:
+                return reasons[0]
+            return "Good conditions"
             
         except Exception as e:
             _LOGGER.error("Error calculating trip reasoning (return): %s", e)
@@ -873,14 +902,14 @@ class BikerSentinelTripReasoningReturn(SensorEntity):
     def extra_state_attributes(self):
         """Return all reasons as attributes."""
         try:
-            for entity_id in self._hass.states.entity_ids():
-                if "trip_score_return" in entity_id:
-                    state = self._hass.states.get(entity_id)
-                    if state:
-                        return {
-                            "reasons": state.attributes.get("reasons", []),
-                            "destination": state.attributes.get("destination", "unknown"),
-                        }
-            return {}
+            trip_score_return = self._entry.runtime_data.get("trip_score_return")
+            if not trip_score_return:
+                return {}
+            
+            return {
+                "reasons": trip_score_return.extra_state_attributes.get("reasons", []),
+                "office_location": trip_score_return.extra_state_attributes.get("office_location", "unknown"),
+                "home_location": trip_score_return.extra_state_attributes.get("home_location", "unknown"),
+            }
         except Exception:
             return {}
