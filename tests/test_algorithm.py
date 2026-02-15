@@ -1,6 +1,18 @@
 """Unit tests for BikerSentinel score calculation algorithm."""
 import pytest
 from unittest.mock import MagicMock, patch
+from bikersentinel.const import (
+    CONF_HEIGHT, CONF_WEIGHT, CONF_BIKE_TYPE, CONF_EQUIPMENT,
+    CONF_SENSITIVITY, CONF_RIDING_CONTEXT, CONF_SENSOR_TEMP,
+    CONF_SENSOR_WIND, CONF_SENSOR_RAIN, CONF_WEATHER_ENTITY,
+    CONF_TRIP_ENABLED, CONF_TRIP_WEATHER_START, CONF_TRIP_WEATHER_END,
+    CONF_TRIP_DEPART_TIME, CONF_TRIP_RETURN_TIME,
+    CONF_NIGHT_MODE_ENABLED, CONF_PRECIP_HISTORY_ENABLED,
+    DEFAULT_HEIGHT_CM, DEFAULT_WEIGHT_KG, DEFAULT_BIKE_TYPE, 
+    DEFAULT_EQUIPMENT, DEFAULT_SENSITIVITY, DEFAULT_RIDING_CONTEXT,
+    MACHINE_TYPES, EQUIPMENT_LEVELS, RIDING_CONTEXTS, PROTECTION_COEFS,
+    EQUIPMENT_COEFS, NIGHT_MODE_MALUS, PRECIP_HISTORY_WINDOW
+)
 
 
 class MockState:
@@ -490,6 +502,115 @@ class TestBikerSentinelStatus:
         status_sensor = BikerSentinelStatus(mock_hass_registry, mock_entry_status)
         status = status_sensor.native_value
         assert status == expected_status
+
+
+
+
+class TestBikerSentinelNightMode:
+    """Test cases for Night Mode visibility penalty."""
+    
+    @pytest.fixture
+    def mock_hass_sun(self):
+        """Create mock HA with sun entity."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_night(self):
+        """Create mock config entry for night mode."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_night"
+        entry.data = {CONF_NIGHT_MODE_ENABLED: True}
+        return entry
+    
+    @pytest.mark.parametrize("elevation,expected_status", [
+        (25.0, "day"),           # Sun well above horizon
+        (11.0, "day"),           # Sun above 10°
+        (10.0, "twilight"),      # Sun at 10° - twilight starts
+        (5.0, "twilight"),       # Golden hour
+        (0.0, "civil_twilight"), # Sunset
+        (-3.0, "civil_twilight"), # Civil twilight
+        (-6.0, "night"),         # Astronomical twilight start
+        (-15.0, "night"),        # Full night
+    ])
+    def test_night_mode_visibility(self, elevation, expected_status, mock_hass_sun, mock_entry_night):
+        """Test night mode visibility status based on solar elevation."""
+        from bikersentinel.sensor import BikerSentinelNightMode
+        
+        night_sensor = BikerSentinelNightMode(mock_hass_sun, mock_entry_night)
+        
+        mock_sun_state = MagicMock()
+        mock_sun_state.attributes = {"elevation": elevation, "azimuth": 180.0}
+        mock_hass_sun.states.get.return_value = mock_sun_state
+        
+        status = night_sensor.native_value
+        assert status == expected_status
+
+
+class TestBikerSentinelTripScore:
+    """Test cases for Trip Score calculation."""
+    
+    @pytest.fixture
+    def mock_hass_trip(self):
+        """Create mock HA for trip score."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_trip(self):
+        """Create mock config entry for trip score."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_trip"
+        entry.data = {
+            CONF_TRIP_ENABLED: True,
+            CONF_TRIP_DEPART_TIME: "08:00",
+            CONF_TRIP_RETURN_TIME: "17:00",
+            CONF_TRIP_WEATHER_START: "weather.home",
+            CONF_TRIP_WEATHER_END: "weather.work",
+        }
+        return entry
+    
+    @pytest.mark.parametrize("condition,expected_score", [
+        ("clear", 10.0),
+        ("cloudy", 9.0),
+        ("partlycloudy", 9.5),
+        ("rainy", 6.5),
+        ("fog", 5.0),
+        ("hail", 2.0),
+        ("snowy", 1.0),
+        ("lightning-rainy", 0.0),
+    ])
+    def test_trip_score_weather_mapping(self, condition, expected_score, mock_hass_trip, mock_entry_trip):
+        """Test trip score mapping for different weather conditions."""
+        from bikersentinel.sensor import BikerSentinelTripScore
+        
+        trip_sensor = BikerSentinelTripScore(mock_hass_trip, mock_entry_trip)
+        score = trip_sensor._get_score_for_condition(condition)
+        assert score == expected_score
+    
+    def test_trip_score_averages_depart_return(self, mock_hass_trip, mock_entry_trip):
+        """Test that trip score averages departure and return scores."""
+        from bikersentinel.sensor import BikerSentinelTripScore
+        
+        trip_sensor = BikerSentinelTripScore(mock_hass_trip, mock_entry_trip)
+        
+        # Mock weather states
+        def mock_states_get(entity_id):
+            if "home" in entity_id:
+                state = MagicMock()
+                state.state = "clear"  # Score 10.0
+                return state
+            elif "work" in entity_id:
+                state = MagicMock()
+                state.state = "rainy"  # Score 6.5
+                return state
+            return None
+        
+        mock_hass_trip.states.get = mock_states_get
+        score = trip_sensor.native_value
+        
+        # Average of 10.0 and 6.5 = 8.25
+        assert score == 8.3 or score == 8.2  # Allow rounding variance
 
 
 if __name__ == "__main__":

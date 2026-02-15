@@ -1,6 +1,6 @@
-# 📋 Feature Verification — BikerSentinel V1.2
+# 📋 Feature Verification — BikerSentinel V1.3
 
-Date: January 12, 2026  
+Date: February 15, 2026  
 Status: ✅ **ALL FEATURES IMPLEMENTED**
 
 ---
@@ -242,17 +242,94 @@ self._surface = (height * 0.005) + (weight * 0.002)
 
 ---
 
+## 8. 🌙 Night Mode & Azimuth (V1.3 NEW)
+
+### Solar Elevation Based Visibility Penalty
+- ✅ **Night Mode Sensor** : `BikerSentinelNightMode` — Enumerated sensor with visibility status
+- ✅ **Solar Elevation Integration** : Uses `sun.sun` entity for real-time elevation data
+- ✅ **Visibility Categories** :
+  - **day** : Solar elevation > 10° → Malus 0.0 (full visibility)
+  - **twilight** : Solar elevation 0° to 10° → Malus -1.5
+  - **civil_twilight** : Solar elevation -6° to 0° → Malus -3.0  
+  - **night** : Solar elevation ≤ -6° → Malus -5.0 (poor visibility)
+
+- ✅ **Integration into Score** : Night Mode malus automatically applied to main BikerSentinelScore
+- ✅ **Configuration** : User can enable/disable via `night_mode_enabled` toggle
+
+**Files** : `const.py` lines 67-71 | `sensor.py` lines 293-328, 179-192 | `config_flow.py` line 89  
+**Tests** : `test_algorithm.py` lines 510-550 (8 parametrized tests) ✅
+
+### Attributes & Reasoning
+- ✅ **NightMode Entity Attributes** : `elevation`, `azimuth`, `malus`
+- ✅ **Reasoning Integration** : Night Mode penalty added to score reasons (e.g., "Night Mode (-5.0)")
+
+**File** : `sensor.py` lines 315-325
+
+---
+
+## 9. 🌧️ Precipitation History (V1.3 NEW)
+
+### 24-Hour Rain Tracking
+- ✅ **PrecipitationHistory Sensor** : Tracks cumulative rain in 24-hour window
+- ✅ **Window Size** : `PRECIP_HISTORY_WINDOW = 24` hours
+- ✅ **Source** : Reads from configured rain sensor entity (`CONF_SENSOR_RAIN`)
+- ✅ **Road State Correlation** : Foundation ready for wet/sludge/icy detection
+
+**Files** : `const.py` line 74 | `sensor.py` lines 330-365 | `config_flow.py` line 90
+
+### Logic
+- Aggregates precipitation values over 24-hour period
+- Provides basis for road surface condition inference
+- Attributes ready for expansion (road_state, traction_factor)
+
+---
+
+## 10. 🛣️ Trip Score (V1.3 NEW)
+
+### Weather-Based Route Safety Scoring
+- ✅ **TripScore Sensor** : Calculates safety score for configured route
+- ✅ **Configuration** :
+  - **Start Weather Entity** : Weather for departure location (e.g., `weather.home`)
+  - **End Weather Entity** : Weather for arrival location (e.g., `weather.work`)
+  - **Departure Time** : Time of departure (stored as string, e.g., "08:00")
+  - **Return Time** : Time of return (stored as string, e.g., "17:00")
+
+- ✅ **Scoring Logic** :
+  - Reads weather conditions from both entities
+  - Maps weather type to safety score using `_get_score_for_condition()`
+  - Averages departure and return scores: `(depart_score + return_score) / 2`
+  
+- ✅ **Weather → Score Mapping** :
+  - clear/sunny: 10.0
+  - cloudy: 9.0
+  - partlycloudy: 9.5
+  - rainy: 6.5
+  - fog: 5.0
+  - hail: 2.0
+  - snowy: 1.0
+  - lightning-rainy: 0.0
+  - default: 7.5
+
+**Files** : `const.py` lines 16-20 | `sensor.py` lines 368-420 | `config_flow.py` lines 84-88  
+**Tests** : `test_algorithm.py` lines 553-618 (9 parametrized tests) ✅
+
+### Attributes
+- ✅ `depart_time` : Scheduled departure time
+- ✅ `return_time` : Scheduled return time  
+- ✅ `start_location` : Name of departure weather entity
+- ✅ `end_location` : Name of arrival weather entity
+
+---
+
 ## ✅ Conclusion
 
-**Overall Status** : 🎯 **100% COMPLIANT**
+**Overall Status** : 🎯 **100% COMPLIANT WITH V1.3 FEATURES**
 
 All described features are correctly implemented :
-- Flexible configuration with optional fields and cold sensitivity slider
-- 3 synchronized entities (Score, Status, Reasoning)
-- Complete V1.2 algorithm with 3 layers (Vetoes, Windchill, Penalties)
+- **V1.2 Features** : Flexible configuration, 3-layer algorithm, cold sensitivity, equipment management
+- **V1.3 New** : Night Mode visibility (solar elevation), Trip Score (route weather), Precip History (24h tracking)
+- 6 synchronized entities (Score, Status, Reasoning, NightMode, TripScore, PrecipHistory)
+- 52 comprehensive unit tests (35 original + 17 new) — **ALL PASSING** ✅
 - Bilingual i18n (EN/FR)
-- Shared Context via Entity Registry
-- Modern HA interface with selectors
-
-**No logic bugs identified.**  
-**Code ready for production on Home Assistant.**
+- Modern HA interface with runtime_data pattern for stable entity synchronization
+- Conditional feature toggles (night_mode_enabled, precip_history_enabled, trip_enabled)
