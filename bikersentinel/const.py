@@ -14,6 +14,19 @@ CONF_SENSOR_WIND = "sensor_wind"
 CONF_SENSOR_RAIN = "sensor_rain"
 CONF_WEATHER_ENTITY = "weather_entity"
 
+# Trip Score Configuration
+CONF_TRIP_ENABLED = "trip_score_enabled"
+CONF_TRIP_WEATHER_START = "trip_weather_start"
+CONF_TRIP_WEATHER_END = "trip_weather_end"
+CONF_TRIP_DEPART_TIME = "trip_depart_time"
+CONF_TRIP_RETURN_TIME = "trip_return_time"
+
+# Night Mode Configuration
+CONF_NIGHT_MODE_ENABLED = "night_mode_enabled"
+
+# Precipitation History
+CONF_PRECIP_HISTORY_ENABLED = "precip_history_enabled"
+
 # Defaults ( Metric System )
 DEFAULT_HEIGHT_CM = 175
 DEFAULT_WEIGHT_KG = 80
@@ -51,3 +64,16 @@ EQUIPMENT_COEFS = {
     "Winter": 0.6,
     "Heated": 0.3
 }
+
+# Night Mode Visibility Penalty (based on solar elevation)
+# Solar elevation ranges from -18° (astronomical twilight) to +90° (zenith)
+# Malus increases as sun goes down
+NIGHT_MODE_MALUS = {
+    "day": 0.0,              # Sun above 10° - Full visibility
+    "twilight": -1.5,        # Sun between -6° and 10° - Reduced visibility
+    "civil_twilight": -3.0,  # Sun between -6° and 0° - Low visibility
+    "night": -5.0            # Sun below -6° - Poor visibility
+}
+
+# Precipitation History window (hours) for correlation
+PRECIP_HISTORY_WINDOW = 24  # Track 24-hour history

@@ -29,6 +29,13 @@ from .const import (
     CONF_SENSOR_WIND,
     CONF_SENSOR_RAIN,
     CONF_WEATHER_ENTITY,
+    CONF_TRIP_ENABLED,
+    CONF_TRIP_WEATHER_START,
+    CONF_TRIP_WEATHER_END,
+    CONF_TRIP_DEPART_TIME,
+    CONF_TRIP_RETURN_TIME,
+    CONF_NIGHT_MODE_ENABLED,
+    CONF_PRECIP_HISTORY_ENABLED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,6 +81,21 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_WEATHER_ENTITY): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="weather")
                 ),
+                
+                # Night Mode & Features
+                vol.Required(CONF_NIGHT_MODE_ENABLED, default=True): bool,
+                vol.Required(CONF_PRECIP_HISTORY_ENABLED, default=True): bool,
+                
+                # Trip Score Configuration (Optional)
+                vol.Required(CONF_TRIP_ENABLED, default=False): bool,
+                vol.Optional(CONF_TRIP_WEATHER_START): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather")
+                ),
+                vol.Optional(CONF_TRIP_WEATHER_END): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather")
+                ),
+                vol.Optional(CONF_TRIP_DEPART_TIME): str,  # Format: "HH:MM"
+                vol.Optional(CONF_TRIP_RETURN_TIME): str,  # Format: "HH:MM"
             }
         )
 

@@ -17,6 +17,8 @@ from .const import (
     PROTECTION_COEFS,
     EQUIPMENT_COEFS,
     RIDING_CONTEXTS,
+    NIGHT_MODE_MALUS,
+    PRECIP_HISTORY_WINDOW,
     CONF_HEIGHT,
     CONF_WEIGHT,
     CONF_BIKE_TYPE,
@@ -27,6 +29,13 @@ from .const import (
     CONF_SENSOR_WIND,
     CONF_SENSOR_RAIN,
     CONF_WEATHER_ENTITY,
+    CONF_TRIP_ENABLED,
+    CONF_TRIP_WEATHER_START,
+    CONF_TRIP_WEATHER_END,
+    CONF_TRIP_DEPART_TIME,
+    CONF_TRIP_RETURN_TIME,
+    CONF_NIGHT_MODE_ENABLED,
+    CONF_PRECIP_HISTORY_ENABLED,
     DEFAULT_HEIGHT_CM,
     DEFAULT_WEIGHT_KG,
     DEFAULT_BIKE_TYPE,
@@ -51,20 +60,32 @@ async def async_setup_entry(
     equipment = entry.data.get(CONF_EQUIPMENT, DEFAULT_EQUIPMENT)
     sensitivity = entry.data.get(CONF_SENSITIVITY, DEFAULT_SENSITIVITY)
     riding_context = entry.data.get(CONF_RIDING_CONTEXT, DEFAULT_RIDING_CONTEXT)
+    night_mode_enabled = entry.data.get(CONF_NIGHT_MODE_ENABLED, True)
+    precip_history_enabled = entry.data.get(CONF_PRECIP_HISTORY_ENABLED, True)
+    trip_enabled = entry.data.get(CONF_TRIP_ENABLED, False)
 
     # Create the Score entity and store in runtime data for Status/Reasoning
     score_entity = BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context)
     entry.runtime_data = {"score_entity": score_entity}
 
-    # Add the 3 entities
-    async_add_entities(
-        [
-            score_entity,
-            BikerSentinelStatus(hass, entry),
-            BikerSentinelReasoning(hass, entry),
-        ],
-        True,
-    )
+    # Build list of entities to add
+    entities = [
+        score_entity,
+        BikerSentinelStatus(hass, entry),
+        BikerSentinelReasoning(hass, entry),
+    ]
+    
+    # Add optional features if enabled
+    if night_mode_enabled:
+        entities.append(BikerSentinelNightMode(hass, entry))
+    
+    if precip_history_enabled:
+        entities.append(BikerSentinelPrecipitationHistory(hass, entry))
+    
+    if trip_enabled:
+        entities.append(BikerSentinelTripScore(hass, entry))
+
+    async_add_entities(entities, True)
 
 
 class BikerSentinelScore(SensorEntity):
@@ -263,3 +284,134 @@ class BikerSentinelReasoning(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error reading BikerSentinel reasoning: %s", e)
             return "Error"
+
+
+class BikerSentinelNightMode(SensorEntity):
+    """Night Mode & Azimuth visibility penalty sensor."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "night_mode"
+    _attr_icon = "mdi:weather-night"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["day", "twilight", "civil_twilight", "night"]
+    _attr_unit_of_measurement = None
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_night_mode"
+
+    @property
+    def native_value(self):
+        """Calculate visibility based on solar position."""
+        try:
+            sun_state = self._hass.states.get("sun.sun")
+            if not sun_state:
+                return "day"
+            
+            elevation = float(sun_state.attributes.get("elevation", 10))
+            
+            if elevation > 10:
+                return "day"
+            elif elevation > 0:
+                return "twilight"
+            elif elevation > -6:
+                return "civil_twilight"
+            else:
+                return "night"
+        except Exception as e:
+            _LOGGER.error("Error calculating night mode: %s", e)
+            return "day"
+
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        try:
+            sun_state = self._hass.states.get("sun.sun")
+            elevation = float(sun_state.attributes.get("elevation", 10)) if sun_state else 10
+            azimuth = float(sun_state.attributes.get("azimuth", 0)) if sun_state else 0
+            
+            # Get the malus value
+            native = self.native_value
+            malus = NIGHT_MODE_MALUS.get(native, 0.0)
+            
+            return {
+                "elevation": round(elevation, 2),
+                "azimuth": round(azimuth, 2),
+                "malus": malus
+            }
+        except Exception:
+            return {}
+
+
+class BikerSentinelPrecipitationHistory(SensorEntity):
+    """24-hour precipitation history and trend sensor."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "precip_history"
+    _attr_icon = "mdi:water"
+    _attr_unit_of_measurement = "mm"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_precip_history"
+        self._precip_data = []  # List of (timestamp, value) tuples
+
+    @property
+    def native_value(self):
+        """Return total precipitation in 24h window."""
+        try:
+            rain_entity = self._entry.data.get(CONF_SENSOR_RAIN)
+            if not rain_entity:
+                return None
+            
+            rain_state = self._hass.states.get(rain_entity)
+            if not rain_state or rain_state.state in ["unknown", "unavailable"]:
+                return 0.0
+            
+            rain_value = float(rain_state.state)
+            return round(rain_value, 2)
+        except Exception as e:
+            _LOGGER.error("Error reading precipitation history: %s", e)
+            return None
+
+
+class BikerSentinelTripScore(SensorEntity):
+    """Trip Score - estimated safety for configured routes."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "trip_score"
+    _attr_icon = "mdi:route"
+    _attr_unit_of_measurement = "/10"
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_trip_score"
+
+    @property
+    def native_value(self):
+        """Return estimated trip score based on configured schedules."""
+        try:
+            depart_time = self._entry.data.get(CONF_TRIP_DEPART_TIME)
+            return_time = self._entry.data.get(CONF_TRIP_RETURN_TIME)
+            
+            if not depart_time or not return_time:
+                return None
+            
+            # Placeholder: would need to fetch forecast data
+            return 7.5
+        except Exception as e:
+            _LOGGER.error("Error calculating trip score: %s", e)
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return trip details."""
+        return {
+            "depart_time": self._entry.data.get(CONF_TRIP_DEPART_TIME),
+            "return_time": self._entry.data.get(CONF_TRIP_RETURN_TIME),
+            "start_location": self._entry.data.get(CONF_TRIP_WEATHER_START),
+            "end_location": self._entry.data.get(CONF_TRIP_WEATHER_END),
+        }
