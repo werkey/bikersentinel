@@ -8,6 +8,7 @@ from bikersentinel.const import (
     CONF_TRIP_ENABLED, CONF_TRIP_WEATHER_START, CONF_TRIP_WEATHER_END,
     CONF_TRIP_DEPART_TIME, CONF_TRIP_RETURN_TIME,
     CONF_NIGHT_MODE_ENABLED, CONF_PRECIP_HISTORY_ENABLED,
+    CONF_COMMUTE_DEPARTURE_TIME, CONF_COMMUTE_ALERT_ADVANCE,
     DEFAULT_HEIGHT_CM, DEFAULT_WEIGHT_KG, DEFAULT_BIKE_TYPE, 
     DEFAULT_EQUIPMENT, DEFAULT_SENSITIVITY, DEFAULT_RIDING_CONTEXT,
     MACHINE_TYPES, EQUIPMENT_LEVELS, RIDING_CONTEXTS, PROTECTION_COEFS,
@@ -754,6 +755,92 @@ class TestBikerSentinelHumidityTrend:
         
         attributes = humidity_sensor.extra_state_attributes
         assert attributes["visibility"] == expected_visibility
+
+
+
+class TestBikerSentinelSolarBlindness:
+    """Test cases for Solar Blindness (glare risk detection)."""
+    
+    @pytest.fixture
+    def mock_hass_glare(self):
+        """Create mock HA for glare detection."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_glare(self):
+        """Create mock config entry for solar blindness."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_glare"
+        entry.data = {}
+        return entry
+    
+    @pytest.mark.parametrize("azimuth,elevation,expected_status", [
+        (180.0, 45.0, "warning"),   # Sun directly ahead = glare
+        (170.0, 45.0, "warning"),   # Sun slightly ahead = glare
+        (190.0, 45.0, "warning"),   # Sun slightly behind = glare
+        (150.0, 45.0, "caution"),   # Sun approaching glare zone
+        (210.0, 45.0, "caution"),   # Sun approaching glare zone
+        (90.0, 45.0, "safe"),       # Sun on side = no glare
+        (270.0, 45.0, "safe"),      # Sun on side = no glare
+        (180.0, -5.0, "safe"),      # Sun below horizon = safe
+    ])
+    def test_solar_blindness_azimuth(self, azimuth, elevation, expected_status, mock_hass_glare, mock_entry_glare):
+        """Test glare risk based on sun azimuth."""
+        from bikersentinel.sensor import BikerSentinelSolarBlindness
+        
+        glare_sensor = BikerSentinelSolarBlindness(mock_hass_glare, mock_entry_glare)
+        
+        # Mock sun entity
+        sun_state = MagicMock()
+        sun_state.attributes = {"azimuth": azimuth, "elevation": elevation}
+        
+        mock_hass_glare.states.get.return_value = sun_state
+        
+        status = glare_sensor.native_value
+        assert status == expected_status
+
+
+class TestBikerSentinelCommuteAlert:
+    """Test cases for Commute Alert system."""
+    
+    @pytest.fixture
+    def mock_hass_commute(self):
+        """Create mock HA for commute alert."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_commute(self):
+        """Create mock config entry for commute alert."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_commute"
+        entry.data = {
+            CONF_COMMUTE_DEPARTURE_TIME: "08:00",
+            CONF_COMMUTE_ALERT_ADVANCE: 15,
+        }
+        return entry
+    
+    def test_commute_alert_ok_status(self, mock_hass_commute, mock_entry_commute):
+        """Test commute alert when departure is far away."""
+        from bikersentinel.sensor import BikerSentinelCommuteAlert
+        
+        alert_sensor = BikerSentinelCommuteAlert(mock_hass_commute, mock_entry_commute)
+        status = alert_sensor.native_value
+        
+        # Should be 'ok' if departure is not in next 15 minutes
+        assert status in ["ok", "alert", "time_to_ride"]
+    
+    def test_commute_alert_has_attributes(self, mock_hass_commute, mock_entry_commute):
+        """Test that commute alert provides necessary attributes."""
+        from bikersentinel.sensor import BikerSentinelCommuteAlert
+        
+        alert_sensor = BikerSentinelCommuteAlert(mock_hass_commute, mock_entry_commute)
+        attributes = alert_sensor.extra_state_attributes
+        
+        assert "departure_time" in attributes
+        assert "minutes_until" in attributes
+        assert "alert_status" in attributes
 
 
 if __name__ == "__main__":

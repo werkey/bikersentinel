@@ -48,32 +48,44 @@ Love BikerSentinel? Consider buying me a coffee!
 
 ---
 
-## 📊 Implemented Features (Phase 1 + Phase 2 partial)
+## 📊 Implemented Features (Phase 1 + Phase 2 + Phase 2+ Complete)
 
-See [VERIFICATION_FEATURES.md](VERIFICATION_FEATURES.md) for detailed analysis of all implemented features with code line references.
+See [VERIFICATION_FEATURES.md](VERIFICATION_FEATURES.md) for detailed analysis of all implemented features with code line references and comprehensive test coverage.
 
 ---
 
 ## 🚀 Development Roadmap
 
-**Version** : 1.2.0 | **Status** : ✅ Production-ready
+**Version** : 2.0beta | **Status** : 🎯 Beta-Ready (74 tests passing)
 
 ### ✅ Phase 1 : Foundations (Version 1.0.0)
 - [x] Custom component architecture.
 - [x] Configuration form (Config Flow) & `Score`/`Status` entities.
 
-### ✅ Phase 2 : Algorithm Development (Partially completed)
+### ✅ Phase 2 : Algorithm Development (COMPLETED - v1.3.0 ✅)
 - [x] **Stability Malus** : Lateral wind impact per machine type.
 - [x] **Sensitivity/Equipment Integration** : New calculation options in the engine.
 - [x] **Riding Context** : Dynamic speed adjustable by user (urban/road/highway).
-- [ ] **Night Mode & Azimuth** : Visibility calculation based on solar position.
-- [ ] **Precipitation History** : 24h correlation with road state.
+- [x] **Night Mode & Visibility** : Solar elevation tracking + visibility malus.
+- [x] **Precipitation History** : 24h correlation with road state (dry/damp/wet/sludge/icy).
+- [x] **Temperature Trend Detection** : Rapid drop detection for icing risk.
+- [x] **Humidity Impact Analysis** : Visibility degradation via high humidity.
+- [x] **Trip Score** : Weather-based route safety (departure & return conditions).
 
-### 🌟 Phase 3 : Advanced Features ("Apotheosis")
-- [ ] **Maintenance** : Chain lubrication reminders after rain and predictive maintenance tracking.
-- [ ] **Machine Learning** : Auto-adjustment of cold sensitivity per real riding data.
+### ✅ Phase 2+ : Intelligent Features (v2.0beta NEW)
+- [x] **Solar Blindness** : Glare alert based on sun azimuth (safe/caution/warning).
+- [x] **Commute Alert** : Pre-departure notification (configurable timing).
+
+### 📋 Phase 3 : Analytics & Insights (v3.0)
+- [ ] **Maintenance Advisor** : Chain lubrication reminders after rain.
+- [ ] **Ride Statistics** : Historical data analysis & trends.
+- [ ] **Weather Learning** : Pattern recognition for auto-optimization.
 - [ ] **Cost Analysis** : Financial comparison Motorcycle vs Car per trip.
+
+### 🚀 Phase 4 : Smart Assistant (v4.0+)
 - [ ] **Roadtrip Checklist** : Dynamic preparation assistant.
+- [ ] **Machine Learning** : Auto-adjustment of cold sensitivity per riding data.
+- [ ] **Equipment Advisor** : Gear recommendations based on conditions.
 
 ---
 

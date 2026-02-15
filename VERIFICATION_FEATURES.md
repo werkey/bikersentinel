@@ -1,7 +1,7 @@
-# 📋 Feature Verification — BikerSentinel V1.3
+# 📋 Feature Verification — BikerSentinel V2.0beta
 
 Date: February 15, 2026  
-Status: ✅ **ALL FEATURES IMPLEMENTED**
+Status: ✅ **ALL FEATURES IMPLEMENTED + NEW INTELLIGENT FEATURES**
 
 ---
 
@@ -367,23 +367,95 @@ self._surface = (height * 0.005) + (weight * 0.002)
 
 ---
 
+## 13. ☀️ Solar Blindness / Glare Alert (V2.0beta NEW)
+
+### Sun Azimuth Based Glare Detection
+- ✅ **SolarBlindness Sensor** : Real-time glare risk assessment
+- ✅ **Sun Azimuth Integration** : Uses `sun.sun` entity for position tracking
+- ✅ **Azimuth Reference** : 0° = North, 90° = East, 180° = South (front), 270° = West
+- ✅ **Glare Risk Categories** :
+  - **safe** : Sun not in glare zone (azimuth > 60° from front) → Malus 0.0
+  - **caution** : Sun approaching glare (30-60° from front) → Malus -1.0
+  - **warning** : Sun directly ahead (< 30° from front) → Malus -2.5
+
+- ✅ **Configuration** : Optional, enabled via `solar_blindness_enabled` toggle (default: True)
+- ✅ **Elevation Check** : No glare risk if sun is below horizon
+
+**Files** : `const.py` lines 107-118 | `sensor.py` lines 751-809 | `config_flow.py` line 99  
+**Tests** : `test_algorithm.py` lines 771-809 (8 parametrized tests) ✅
+
+### Attributes
+- ✅ `azimuth` : Current sun azimuth in degrees (0-360)
+- ✅ `malus` : Applied glare penalty
+- ✅ `risk_level` : safe/caution/warning status
+
+---
+
+## 14. 🚨 Commute Alert / Pre-Departure Notification (V2.0beta NEW)
+
+### Scheduled Departure Time Tracking
+- ✅ **CommuteAlert Sensor** : Pre-departure notification system
+- ✅ **Configuration** :
+  - **Departure Time** : Scheduled departure time (format: "HH:MM", e.g., "08:00")
+  - **Alert Advance** : Minutes before departure to trigger alert (default: 15 min)
+
+- ✅ **Alert Status Categories** :
+  - **ok** : Departure is far away (> alert_advance minutes)
+  - **alert** : Approaching alert window (within alert_advance minutes)
+  - **time_to_ride** : Time to depart! (departure time is now)
+
+- ✅ **Logic** :
+  - Checks current time against configured departure time
+  - Handles day rollover (if departure already passed, uses tomorrow)
+  - Provides minutes-until-departure for automation integration
+  
+- ✅ **Configuration** : Optional, enabled via `commute_alert_enabled` toggle
+
+**Files** : `const.py` lines 120-126 | `sensor.py` lines 812-888 | `config_flow.py` lines 101-103  
+**Tests** : `test_algorithm.py` lines 812-847 (2 tests) ✅
+
+### Attributes
+- ✅ `departure_time` : Configured departure time ("HH:MM")
+- ✅ `minutes_until` : Minutes remaining until departure (integer)
+- ✅ `alert_status` : Current alert status (ok/alert/time_to_ride)
+
+---
+
 ## ✅ Conclusion
 
-**Overall Status** : 🎯 **100% COMPLIANT WITH V1.3 FEATURES**
+**Overall Status** : 🎯 **100% COMPLIANT WITH V2.0beta FEATURES**
 
-All described features are correctly implemented :
-- **V1.2 Features** : Flexible configuration, 3-layer algorithm, cold sensitivity, equipment management
-- **V1.3 New** : Night Mode visibility (solar elevation), Trip Score (route weather), Precip History (24h tracking), Road State Correlation, Temperature & Humidity Trend Detection
-- 8 synchronized entities (Score, Status, Reasoning, NightMode, TripScore, PrecipHistory, TemperatureTrend, HumidityTrend)
-- 64 comprehensive unit tests (35 original + 29 new) — **ALL PASSING** ✅
-- Bilingual i18n (EN/FR)
-- Modern HA interface with runtime_data pattern for stable entity synchronization
-- Conditional feature toggles (night_mode_enabled, precip_history_enabled, trip_enabled, temp_humidity_trends_enabled)
+All platform features are correctly implemented:
 
-**No logic bugs identified.**  
-**Code ready for production on Home Assistant — v1.3.0 COMPLETE**
-- 6 synchronized entities (Score, Status, Reasoning, NightMode, TripScore, PrecipHistory)
-- 52 comprehensive unit tests (35 original + 17 new) — **ALL PASSING** ✅
-- Bilingual i18n (EN/FR)
-- Modern HA interface with runtime_data pattern for stable entity synchronization
-- Conditional feature toggles (night_mode_enabled, precip_history_enabled, trip_enabled)
+**Phase 1 Complete (v1.0.0):**
+- Custom component architecture with ConfigFlow
+
+**Phase 2 Complete (v1.3.0):**
+- 3-layer algorithm (Vetoes, Windchill, Penalties)
+- Equipment & sensitivity management
+- Night Mode visibility tracking
+- Precipitation history & road state correlation
+- Temperature trend detection
+- Humidity impact analysis
+- Trip score with route weather
+
+**Phase 2+ Complete (v2.0beta - NEW):**
+- Solar Blindness / glare alert system
+- Commute alert with pre-departure notifications
+
+**Implementation Summary:**
+- **10 synchronized sensor entities** (Score, Status, Reasoning, NightMode, PrecipHistory, TripScore, TemperatureTrend, HumidityTrend, SolarBlindness, CommuteAlert)
+- **74 comprehensive unit tests** (35 original + 39 new) — **ALL PASSING** ✅
+- **Bilingual i18n** (EN/FR)
+- **Modern HA interface** with runtime_data pattern for stable entity synchronization
+- **Conditional feature toggles** for all optional features
+- **No logic bugs identified**
+
+**Code Quality:**
+- ✅ 74/74 tests passing (100% success rate)
+- ✅ Proper error handling with logging
+- ✅ Async/await patterns followed
+- ✅ Type hints and docstrings included
+- ✅ French & English translations
+
+**Code ready for production on Home Assistant — v2.0beta READY FOR TESTING**

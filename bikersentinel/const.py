@@ -122,3 +122,19 @@ HUMIDITY_MALUS = {
     "moderate": 0.0,
     "high": -1.5,  # High humidity increases fog risk
 }
+
+# Solar Blindness (Glare Risk Detection)
+# Based on sun azimuth (0° = N, 90° = E, 180° = S, 270° = W)
+CONF_SOLAR_BLINDNESS_ENABLED = "solar_blindness_enabled"
+SOLAR_BLINDNESS_THRESHOLD = 60  # degrees from front azimuth (90-270°)
+SOLAR_BLINDNESS_MALUS = {
+    "safe": 0.0,           # Sun not in glare zone
+    "caution": -1.0,       # Sun approaching glare angle
+    "warning": -2.5,       # Sun in prime glare zone
+}
+
+# Commute Alert (Pre-Departure Notification)
+CONF_COMMUTE_ALERT_ENABLED = "commute_alert_enabled"
+CONF_COMMUTE_DEPARTURE_TIME = "commute_departure_time"  # Format: "HH:MM"
+CONF_COMMUTE_ALERT_ADVANCE = "commute_alert_advance_min"  # Minutes before departure
+COMMUTE_ALERT_DEFAULT_ADVANCE = 15  # Default 15 minutes before departure

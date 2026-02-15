@@ -24,6 +24,9 @@ from .const import (
     TEMP_TREND_MALUS,
     HUMIDITY_THRESHOLDS,
     HUMIDITY_MALUS,
+    SOLAR_BLINDNESS_THRESHOLD,
+    SOLAR_BLINDNESS_MALUS,
+    COMMUTE_ALERT_DEFAULT_ADVANCE,
     CONF_HEIGHT,
     CONF_WEIGHT,
     CONF_BIKE_TYPE,
@@ -42,6 +45,10 @@ from .const import (
     CONF_NIGHT_MODE_ENABLED,
     CONF_PRECIP_HISTORY_ENABLED,
     CONF_TEMP_HUMIDITY_TRENDS_ENABLED,
+    CONF_SOLAR_BLINDNESS_ENABLED,
+    CONF_COMMUTE_ALERT_ENABLED,
+    CONF_COMMUTE_DEPARTURE_TIME,
+    CONF_COMMUTE_ALERT_ADVANCE,
     DEFAULT_HEIGHT_CM,
     DEFAULT_WEIGHT_KG,
     DEFAULT_BIKE_TYPE,
@@ -70,6 +77,8 @@ async def async_setup_entry(
     precip_history_enabled = entry.data.get(CONF_PRECIP_HISTORY_ENABLED, True)
     trip_enabled = entry.data.get(CONF_TRIP_ENABLED, False)
     temp_humidity_enabled = entry.data.get(CONF_TEMP_HUMIDITY_TRENDS_ENABLED, False)
+    solar_blindness_enabled = entry.data.get(CONF_SOLAR_BLINDNESS_ENABLED, True)
+    commute_alert_enabled = entry.data.get(CONF_COMMUTE_ALERT_ENABLED, False)
 
     # Create the Score entity and store in runtime data for Status/Reasoning
     score_entity = BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context)
@@ -97,6 +106,12 @@ async def async_setup_entry(
     if temp_humidity_enabled:
         entities.append(BikerSentinelTemperatureTrend(hass, entry))
         entities.append(BikerSentinelHumidityTrend(hass, entry))
+    
+    if solar_blindness_enabled:
+        entities.append(BikerSentinelSolarBlindness(hass, entry))
+    
+    if commute_alert_enabled:
+        entities.append(BikerSentinelCommuteAlert(hass, entry))
 
     entry.runtime_data = runtime_data
     async_add_entities(entities, True)
@@ -716,4 +731,168 @@ class BikerSentinelHumidityTrend(SensorEntity):
         return {
             "visibility": visibility,
             "visibility_malus": malus,
+        }
+
+
+class BikerSentinelSolarBlindness(SensorEntity):
+    """Monitor sun azimuth for glare risk (Solar Blindness)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "solar_blindness"
+    _attr_icon = "mdi:sun-glare"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["safe", "caution", "warning"]
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_solar_blindness"
+
+    def _analyze_glare_risk(self) -> tuple:
+        """
+        Analyze sun azimuth for glare risk.
+        
+        Sun azimuth: 0° = N, 90° = E, 180° = S, 270° = W
+        Front rider faces azimuth = 180° (South generally)
+        Glare zone = 90-270° (when sun is in front)
+        
+        Returns: (status: str, malus: float, azimuth: float)
+        """
+        try:
+            sun_state = self._hass.states.get("sun.sun")
+            if not sun_state:
+                return ("safe", 0.0, 0.0)
+            
+            azimuth = float(sun_state.attributes.get("azimuth", 0))
+            elevation = float(sun_state.attributes.get("elevation", 10))
+            
+            # No glare if sun is below horizon
+            if elevation < 0:
+                return ("safe", 0.0, azimuth)
+            
+            # Calculate angle from front direction (180°)
+            # Normalize to -180 to +180
+            angle_from_front = azimuth - 180
+            if angle_from_front > 180:
+                angle_from_front -= 360
+            elif angle_from_front < -180:
+                angle_from_front += 360
+            
+            abs_angle = abs(angle_from_front)
+            
+            # Determine glare risk based on angle from front
+            if abs_angle < 30:
+                # Sun directly ahead = maximum glare risk
+                return ("warning", -2.5, azimuth)
+            elif abs_angle < 60:
+                # Sun approaching glare zone
+                return ("caution", -1.0, azimuth)
+            else:
+                # Sun not in prime glare zone
+                return ("safe", 0.0, azimuth)
+        
+        except Exception as e:
+            _LOGGER.error("Error analyzing solar blindness: %s", e)
+            return ("safe", 0.0, 0.0)
+
+    @property
+    def native_value(self):
+        """Return current glare risk status."""
+        status, _, _ = self._analyze_glare_risk()
+        return status
+
+    @property
+    def extra_state_attributes(self):
+        """Return glare analysis details."""
+        status, malus, azimuth = self._analyze_glare_risk()
+        
+        return {
+            "azimuth": round(azimuth, 1),
+            "malus": malus,
+            "risk_level": status,
+        }
+
+
+class BikerSentinelCommuteAlert(SensorEntity):
+    """Pre-departure commute alert notification system."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "commute_alert"
+    _attr_icon = "mdi:alarm-light"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["ok", "alert", "time_to_ride"]
+
+    def __init__(self, hass, entry):
+        self._hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_commute_alert"
+
+    def _check_commute_status(self) -> tuple:
+        """
+        Check if current time is close to scheduled departure.
+        
+        Returns: (status: str, time_until: int minutes, next_alert: str HH:MM)
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            departure_time_str = self._entry.data.get(CONF_COMMUTE_DEPARTURE_TIME)
+            if not departure_time_str:
+                return ("ok", 0, "Not configured")
+            
+            alert_advance = self._entry.data.get(
+                CONF_COMMUTE_ALERT_ADVANCE, 
+                COMMUTE_ALERT_DEFAULT_ADVANCE
+            )
+            
+            # Parse departure time
+            try:
+                depart_hour, depart_min = map(int, departure_time_str.split(":"))
+            except (ValueError, AttributeError):
+                return ("ok", 0, "Invalid time format")
+            
+            # Get current time
+            now = datetime.now()
+            
+            # Create departure datetime for today
+            depart_today = now.replace(hour=depart_hour, minute=depart_min, second=0, microsecond=0)
+            
+            # If departure time already passed today, use tomorrow
+            if now > depart_today:
+                depart_today = depart_today + timedelta(days=1)
+            
+            # Calculate time until departure
+            time_until = (depart_today - now).total_seconds() / 60  # minutes
+            
+            # Determine alert status
+            if time_until <= 0:
+                status = "ok"  # Already departed
+            elif time_until <= alert_advance:
+                status = "time_to_ride"  # Departure time is now!
+            elif time_until <= alert_advance + 5:  # Small buffer
+                status = "alert"  # Alert window is approaching
+            else:
+                status = "ok"  # Not yet time to alert
+            
+            return (status, int(time_until), departure_time_str)
+        
+        except Exception as e:
+            _LOGGER.error("Error checking commute status: %s", e)
+            return ("ok", 0, "Error")
+
+    @property
+    def native_value(self):
+        """Return commute alert status."""
+        status, _, _ = self._check_commute_status()
+        return status
+
+    @property
+    def extra_state_attributes(self):
+        """Return commute alert details."""
+        status, time_until, depart_time = self._check_commute_status()
+        
+        return {
+            "departure_time": depart_time,
+            "minutes_until": time_until,
+            "alert_status": status,
         }

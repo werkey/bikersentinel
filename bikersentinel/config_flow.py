@@ -37,6 +37,10 @@ from .const import (
     CONF_NIGHT_MODE_ENABLED,
     CONF_PRECIP_HISTORY_ENABLED,
     CONF_TEMP_HUMIDITY_TRENDS_ENABLED,
+    CONF_SOLAR_BLINDNESS_ENABLED,
+    CONF_COMMUTE_ALERT_ENABLED,
+    CONF_COMMUTE_DEPARTURE_TIME,
+    CONF_COMMUTE_ALERT_ADVANCE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,6 +102,14 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_TRIP_DEPART_TIME): str,  # Format: "HH:MM"
                 vol.Optional(CONF_TRIP_RETURN_TIME): str,  # Format: "HH:MM"
+                
+                # Solar Blindness (Glare Alert)
+                vol.Required(CONF_SOLAR_BLINDNESS_ENABLED, default=True): bool,
+                
+                # Commute Alert Configuration
+                vol.Required(CONF_COMMUTE_ALERT_ENABLED, default=False): bool,
+                vol.Optional(CONF_COMMUTE_DEPARTURE_TIME): str,  # Format: "HH:MM"
+                vol.Optional(CONF_COMMUTE_ALERT_ADVANCE, default=15): int,  # Minutes
             }
         )
 

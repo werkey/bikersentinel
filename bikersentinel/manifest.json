@@ -1,7 +1,7 @@
 {
   "domain": "bikersentinel",
   "name": "BikerSentinel",
-  "version": "1.3.0",
+  "version": "2.0beta",
   "documentation": "https://github.com/werkey/bikersentinel",
   "config_flow": true,
   "iot_class": "local_polling"
