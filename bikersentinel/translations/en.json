@@ -2,36 +2,47 @@
     "config": {
         "step": {
             "user": {
-                "title": "BikerSentinel Configuration",
-                "description": "Configure your rider profile. Optional fields will use standard averages.",
+                "title": "BikerSentinel - Setup Wizard",
+                "description": "Configure your weather sensors and rider profile",
                 "data": {
-                    "height": "Height (cm) [Optional]",
-                    "weight": "Weight (kg) [Optional]",
-                    "sensitivity": "Cold Sensitivity (1=Viking, 5=Sensitive)",
-                    "bike_type": "Motorcycle Type",
-                    "equipment_level": "Equipment Level",
-                    "riding_context": "Riding Context (average speed)",
-                    "sensor_temp": "Temperature Sensor",
-                    "sensor_wind": "Wind Speed Sensor",
+                    "sensor_temp": "Temperature Sensor (°C)",
+                    "sensor_wind": "Wind Speed Sensor (km/h)",
                     "sensor_rain": "Rain Sensor (mm)",
-                    "weather_entity": "Global Weather Entity [Optional]"
+                    "weather_entity": "Weather Entity [Optional]",
+                    "height": "Height (cm) [Optional - default 175cm]",
+                    "weight": "Weight (kg) [Optional - default 80kg]",
+                    "bike_type": "Motorcycle Type",
+                    "equipment_level": "Protective Equipment Level",
+                    "riding_context": "Typical Riding Context",
+                    "sensitivity": "Cold Sensitivity (1=Viking, 5=Sensitive)",
+                    "trip_score_enabled": "Enable Trip Forecasting [Optional]"
+                }
+            },
+            "trips": {
+                "title": "BikerSentinel - Trip Configuration",
+                "description": "Configure your daily commute routes",
+                "data": {
+                    "trip_weather_start": "Weather Source (Outbound)",
+                    "trip_depart_time": "Typical Departure Time (HH:MM)",
+                    "trip_weather_end": "Weather Source (Return)",
+                    "trip_return_time": "Typical Return Time (HH:MM)"
                 }
             }
         },
         "error": {
-            "missing_sensors": "Please select all required sensors."
+            "missing_sensors": "Please select all required weather sensors."
         },
         "abort": {
-            "already_configured": "Device already configured"
+            "already_configured": "BikerSentinel is already configured"
         }
     },
     "entity": {
         "sensor": {
             "score": {
-                "name": "Biker Score"
+                "name": "Riding Score"
             },
             "status": {
-                "name": "Status",
+                "name": "Riding Status",
                 "state": {
                     "optimal": "Optimal",
                     "favorable": "Favorable",
@@ -44,6 +55,12 @@
             },
             "reasoning": {
                 "name": "Score Reasoning"
+            },
+            "trip_score_go": {
+                "name": "Outbound Trip Score"
+            },
+            "trip_score_return": {
+                "name": "Return Trip Score"
             }
         }
     }

@@ -2,30 +2,47 @@
     "config": {
         "step": {
             "user": {
-                "title": "Configuration BikerSentinel",
-                "description": "Configurez votre profil. Les champs vides utiliseront des moyennes standard.",
+                "title": "BikerSentinel - Assistant de Configuration",
+                "description": "Configurez vos capteurs météo et votre profil motard",
                 "data": {
-                    "height": "Taille (cm) [Optionnel]",
-                    "weight": "Poids (kg) [Optionnel]",
-                    "sensitivity": "Frilosité (1=Viking, 5=Frileux)",
+                    "sensor_temp": "Capteur Température (°C)",
+                    "sensor_wind": "Capteur Vent (km/h)",
+                    "sensor_rain": "Capteur Pluie (mm)",
+                    "weather_entity": "Source Météo [Optionnel]",
+                    "height": "Taille (cm) [Optionnel - défaut 175cm]",
+                    "weight": "Poids (kg) [Optionnel - défaut 80kg]",
                     "bike_type": "Type de Moto",
                     "equipment_level": "Niveau d'Équipement",
-                    "riding_context": "Contexte de Trajet (vitesse moyenne)",
-                    "sensor_temp": "Capteur Température",
-                    "sensor_wind": "Capteur Vent",
-                    "sensor_rain": "Capteur Pluie",
-                    "weather_entity": "Météo Globale [Optionnel]"
+                    "riding_context": "Contexte de Trajet Habituel",
+                    "sensitivity": "Frilosité (1=Viking, 5=Frileux)",
+                    "trip_score_enabled": "Activer Prévisions de Trajet [Optionnel]"
+                }
+            },
+            "trips": {
+                "title": "BikerSentinel - Configuration des Trajets",
+                "description": "Configurez vos routes quotidiennes",
+                "data": {
+                    "trip_weather_start": "Source Météo (Aller)",
+                    "trip_depart_time": "Heure de Départ Habituelle (HH:MM)",
+                    "trip_weather_end": "Source Météo (Retour)",
+                    "trip_return_time": "Heure de Retour Habituelle (HH:MM)"
                 }
             }
+        },
+        "error": {
+            "missing_sensors": "Veuillez sélectionner tous les capteurs météo obligatoires."
+        },
+        "abort": {
+            "already_configured": "BikerSentinel est déjà configuré"
         }
     },
     "entity": {
         "sensor": {
             "score": {
-                "name": "Score Motard"
+                "name": "Score de Route"
             },
             "status": {
-                "name": "Statut",
+                "name": "Statut de Sécurité",
                 "state": {
                     "optimal": "Optimal",
                     "favorable": "Favorable",
@@ -38,6 +55,12 @@
             },
             "reasoning": {
                 "name": "Justification du Score"
+            },
+            "trip_score_go": {
+                "name": "Score Trajet Aller"
+            },
+            "trip_score_return": {
+                "name": "Score Trajet Retour"
             }
         }
     }

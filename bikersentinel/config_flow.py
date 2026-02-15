@@ -21,6 +21,8 @@ from .const import (
     CONF_EQUIPMENT,
     CONF_SENSITIVITY,
     CONF_RIDING_CONTEXT,
+    DEFAULT_HEIGHT_CM,
+    DEFAULT_WEIGHT_KG,
     DEFAULT_BIKE_TYPE,
     DEFAULT_EQUIPMENT,
     DEFAULT_SENSITIVITY,
@@ -34,13 +36,6 @@ from .const import (
     CONF_TRIP_WEATHER_END,
     CONF_TRIP_DEPART_TIME,
     CONF_TRIP_RETURN_TIME,
-    CONF_NIGHT_MODE_ENABLED,
-    CONF_PRECIP_HISTORY_ENABLED,
-    CONF_TEMP_HUMIDITY_TRENDS_ENABLED,
-    CONF_SOLAR_BLINDNESS_ENABLED,
-    CONF_COMMUTE_ALERT_ENABLED,
-    CONF_COMMUTE_DEPARTURE_TIME,
-    CONF_COMMUTE_ALERT_ADVANCE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,27 +48,24 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial configuration (Sensors + Rider Profile)."""
         if user_input is not None:
-            # Use the bike type in the title to distinguish multiple instances
-            return self.async_create_entry(title=f"BikerSentinel ({user_input[CONF_BIKE_TYPE]})", data=user_input)
+            # Check if user wants to configure trips
+            if user_input.get(CONF_TRIP_ENABLED):
+                # Save data and continue to trips step
+                self._data = user_input
+                return await self.async_step_trips()
+            else:
+                # No trips, create entry
+                return self.async_create_entry(
+                    title=f"BikerSentinel ({user_input[CONF_BIKE_TYPE]})", 
+                    data=user_input
+                )
 
-        # Schema definition using English constants
+        # Main configuration schema - Sensors & Rider Profile
         data_schema = vol.Schema(
             {
-                # Optional Physical Attributes
-                vol.Optional(CONF_HEIGHT): int,
-                vol.Optional(CONF_WEIGHT): int,
-                
-                # Sensitivity Slider (1-5)
-                vol.Required(CONF_SENSITIVITY, default=DEFAULT_SENSITIVITY): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
-
-                # Machine & Gear
-                vol.Required(CONF_BIKE_TYPE, default=DEFAULT_BIKE_TYPE): vol.In(MACHINE_TYPES),
-                vol.Required(CONF_EQUIPMENT, default=DEFAULT_EQUIPMENT): vol.In(EQUIPMENT_LEVELS),
-                vol.Required(CONF_RIDING_CONTEXT, default=DEFAULT_RIDING_CONTEXT): vol.In(RIDING_CONTEXTS.keys()),
-                
-                # Sensors Selection
+                # --- SECTION 1: WEATHER SENSORS (Required) ---
                 vol.Required(CONF_SENSOR_TEMP): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="sensor")
                 ),
@@ -87,33 +79,54 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain="weather")
                 ),
                 
-                # Night Mode & Features
-                vol.Required(CONF_NIGHT_MODE_ENABLED, default=True): bool,
-                vol.Required(CONF_PRECIP_HISTORY_ENABLED, default=True): bool,
-                vol.Required(CONF_TEMP_HUMIDITY_TRENDS_ENABLED, default=True): bool,
+                # --- SECTION 2: RIDER PROFILE (Required) ---
+                vol.Optional(CONF_HEIGHT, default=DEFAULT_HEIGHT_CM): int,
+                vol.Optional(CONF_WEIGHT, default=DEFAULT_WEIGHT_KG): int,
+                vol.Required(CONF_BIKE_TYPE, default=DEFAULT_BIKE_TYPE): vol.In(MACHINE_TYPES),
+                vol.Required(CONF_EQUIPMENT, default=DEFAULT_EQUIPMENT): vol.In(EQUIPMENT_LEVELS),
+                vol.Required(CONF_RIDING_CONTEXT, default=DEFAULT_RIDING_CONTEXT): vol.In(RIDING_CONTEXTS.keys()),
+                vol.Required(CONF_SENSITIVITY, default=DEFAULT_SENSITIVITY): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
                 
-                # Trip Score Configuration (Optional)
+                # --- SECTION 3: TRIP FORECASTING (Optional) ---
                 vol.Required(CONF_TRIP_ENABLED, default=False): bool,
-                vol.Optional(CONF_TRIP_WEATHER_START): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="weather")
-                ),
-                vol.Optional(CONF_TRIP_WEATHER_END): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="weather")
-                ),
-                vol.Optional(CONF_TRIP_DEPART_TIME): str,  # Format: "HH:MM"
-                vol.Optional(CONF_TRIP_RETURN_TIME): str,  # Format: "HH:MM"
-                
-                # Solar Blindness (Glare Alert)
-                vol.Required(CONF_SOLAR_BLINDNESS_ENABLED, default=True): bool,
-                
-                # Commute Alert Configuration
-                vol.Required(CONF_COMMUTE_ALERT_ENABLED, default=False): bool,
-                vol.Optional(CONF_COMMUTE_DEPARTURE_TIME): str,  # Format: "HH:MM"
-                vol.Optional(CONF_COMMUTE_ALERT_ADVANCE, default=15): int,  # Minutes
             }
         )
 
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
+        )
+
+    async def async_step_trips(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure trip forecasting (Outbound & Return journeys)."""
+        if user_input is not None:
+            # Merge trip config with main data
+            config_data = {**self._data, **user_input}
+            return self.async_create_entry(
+                title=f"BikerSentinel ({self._data[CONF_BIKE_TYPE]})", 
+                data=config_data
+            )
+
+        # Trip configuration schema
+        trips_schema = vol.Schema(
+            {
+                # --- OUTBOUND TRIP ---
+                vol.Required(CONF_TRIP_WEATHER_START): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather")
+                ),
+                vol.Required(CONF_TRIP_DEPART_TIME): str,  # Format: "HH:MM"
+                
+                # --- RETURN TRIP ---
+                vol.Required(CONF_TRIP_WEATHER_END): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather")
+                ),
+                vol.Required(CONF_TRIP_RETURN_TIME): str,  # Format: "HH:MM"
+            }
+        )
+
+        return self.async_show_form(
+            step_id="trips",
+            data_schema=trips_schema,
         )
