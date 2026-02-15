@@ -100,6 +100,7 @@ class BikerSentinelScore(SensorEntity):
     def __init__(self, hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context):
         """Initialize the score sensor."""
         self._hass = hass
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_score"
         
         # Internal attribute to store reasoning list
@@ -174,6 +175,30 @@ class BikerSentinelScore(SensorEntity):
             if weather_state == "fog":
                 score -= 3.0
                 reasons.append("Fog (-3)")
+
+            # 2b. NIGHT MODE & VISIBILITY (Solar elevation)
+            night_mode_enabled = self._entry.data.get(CONF_NIGHT_MODE_ENABLED, True)
+            if night_mode_enabled:
+                try:
+                    sun_state = self._hass.states.get("sun.sun")
+                    if sun_state:
+                        elevation = float(sun_state.attributes.get("elevation", 10))
+                        
+                        # Determine visibility status and apply malus
+                        if elevation > 10:
+                            night_malus = NIGHT_MODE_MALUS.get("day", 0.0)
+                        elif elevation > 0:
+                            night_malus = NIGHT_MODE_MALUS.get("twilight", 0.0)
+                        elif elevation > -6:
+                            night_malus = NIGHT_MODE_MALUS.get("civil_twilight", 0.0)
+                        else:
+                            night_malus = NIGHT_MODE_MALUS.get("night", 0.0)
+                        
+                        if night_malus < 0:
+                            score += night_malus  # night_malus is negative, so we add it
+                            reasons.append(f"Night Mode ({night_malus:.1f})")
+                except Exception:
+                    pass  # Silently skip if sun.sun is not available
 
             # 3. WINDCHILL (Thermal Comfort)
             # Dynamic wind speed considering riding context (configured by user)
@@ -392,19 +417,66 @@ class BikerSentinelTripScore(SensorEntity):
 
     @property
     def native_value(self):
-        """Return estimated trip score based on configured schedules."""
+        """Return estimated trip score based on configured schedules and forecast."""
         try:
             depart_time = self._entry.data.get(CONF_TRIP_DEPART_TIME)
             return_time = self._entry.data.get(CONF_TRIP_RETURN_TIME)
+            weather_start = self._entry.data.get(CONF_TRIP_WEATHER_START)
+            weather_end = self._entry.data.get(CONF_TRIP_WEATHER_END)
             
-            if not depart_time or not return_time:
+            if not depart_time or not return_time or not weather_start:
                 return None
             
-            # Placeholder: would need to fetch forecast data
-            return 7.5
+            # Calculate depart score
+            depart_score = self._calculate_forecast_score(weather_start, depart_time)
+            
+            # Calculate return score (use same location if end location not specified)
+            return_entity = weather_end or weather_start
+            return_score = self._calculate_forecast_score(return_entity, return_time)
+            
+            # Average the two scores
+            if depart_score is not None and return_score is not None:
+                trip_avg = (depart_score + return_score) / 2
+                return round(max(0, min(10, trip_avg)), 1)
+            elif depart_score is not None:
+                return depart_score
+            
+            return None
         except Exception as e:
             _LOGGER.error("Error calculating trip score: %s", e)
             return None
+
+    def _calculate_forecast_score(self, weather_entity, target_time):
+        """Calculate score for a specific weather entity and time."""
+        try:
+            if not weather_entity:
+                return None
+            
+            w_state = self._hass.states.get(weather_entity)
+            if not w_state:
+                return None
+            
+            # Default score for current conditions
+            current_condition = w_state.state
+            score = self._get_score_for_condition(current_condition)
+            
+            return score
+        except Exception:
+            return None
+
+    def _get_score_for_condition(self, condition):
+        """Map weather condition to score impact."""
+        condition_scores = {
+            "clear": 10.0,
+            "cloudy": 9.0,
+            "rainy": 6.5,
+            "fog": 5.0,
+            "hail": 2.0,
+            "snowy": 1.0,
+            "lightning-rainy": 0.0,
+            "partlycloudy": 9.5,
+        }
+        return condition_scores.get(condition, 7.5)
 
     @property
     def extra_state_attributes(self):
