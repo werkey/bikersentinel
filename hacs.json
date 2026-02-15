@@ -1,0 +1,9 @@
+{
+  "name": "BikerSentinel",
+  "content_in_root": false,
+  "zip_release": false,
+  "filename": "bikersentinel.zip",
+  "render_readme": true,
+  "country": "FR",
+  "homeassistant": "2024.1.0"
+}

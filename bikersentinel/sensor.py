@@ -11,7 +11,6 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import entity_registry
 
 from .const import (
     DOMAIN,
@@ -53,10 +52,14 @@ async def async_setup_entry(
     sensitivity = entry.data.get(CONF_SENSITIVITY, DEFAULT_SENSITIVITY)
     riding_context = entry.data.get(CONF_RIDING_CONTEXT, DEFAULT_RIDING_CONTEXT)
 
+    # Create the Score entity and store in runtime data for Status/Reasoning
+    score_entity = BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context)
+    entry.runtime_data = {"score_entity": score_entity}
+
     # Add the 3 entities
     async_add_entities(
         [
-            BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context),
+            score_entity,
             BikerSentinelStatus(hass, entry),
             BikerSentinelReasoning(hass, entry),
         ],
@@ -197,30 +200,35 @@ class BikerSentinelStatus(SensorEntity):
     _attr_translation_key = "status"
     _attr_icon = "mdi:shield-check"
     _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["optimal", "favorable", "degraded", "critical", "dangerous", "analyzing", "error"]
 
     def __init__(self, hass, entry):
         self._hass = hass
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_status"
-        self._score_unique_id = f"{entry.entry_id}_score"
-        self._attr_options = ["optimal", "favorable", "degraded", "critical", "dangerous", "analyzing", "error"]
 
     @property
     def native_value(self):
-        # CORRECTED: Use entity_registry to safely get the ID
-        registry = entity_registry.async_get(self._hass)
-        score_entity_id = registry.async_get_entity_id("sensor", DOMAIN, self._score_unique_id)
-        
-        if not score_entity_id: return "analyzing"
-
-        s_state = self._hass.states.get(score_entity_id)
-        if not s_state or s_state.state in ["unknown", "unavailable", None]: return "analyzing"
-            
+        """Get status from Score entity stored in runtime_data."""
         try:
-            s = float(s_state.state)
-            if s >= 9: return "optimal"
-            if s >= 7: return "favorable"
-            if s >= 5: return "degraded"
-            if s >= 3: return "critical"
+            score_entity = self._entry.runtime_data.get("score_entity")
+            if not score_entity:
+                return "analyzing"
+            
+            # Access Score's native_value directly
+            score = score_entity.native_value
+            if score is None:
+                return "analyzing"
+            
+            s = float(score)
+            if s >= 9:
+                return "optimal"
+            if s >= 7:
+                return "favorable"
+            if s >= 5:
+                return "degraded"
+            if s >= 3:
+                return "critical"
             return "dangerous"
         except Exception:
             return "error"
@@ -235,23 +243,23 @@ class BikerSentinelReasoning(SensorEntity):
 
     def __init__(self, hass, entry):
         self._hass = hass
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_reasoning"
-        self._score_unique_id = f"{entry.entry_id}_score"
 
     @property
     def native_value(self):
-        """Reads the 'reasons' attribute from the Score entity."""
-        # CORRECTED: Use entity_registry to safely get the ID
-        registry = entity_registry.async_get(self._hass)
-        score_entity_id = registry.async_get_entity_id("sensor", DOMAIN, self._score_unique_id)
-        
-        if not score_entity_id: return "Initializing..."
-        
-        s_state = self._hass.states.get(score_entity_id)
-        if not s_state: return "Waiting..."
-        
-        # Access attributes safely
-        reasons = s_state.attributes.get("reasons", [])
-        
-        if not reasons: return "RAS"
-        return ", ".join(reasons)
+        """Reads the 'reasons' attribute from the Score entity stored in runtime_data."""
+        try:
+            score_entity = self._entry.runtime_data.get("score_entity")
+            if not score_entity:
+                return "Initializing..."
+            
+            # Access the Score's attributes directly
+            reasons = score_entity.extra_state_attributes.get("reasons", [])
+            
+            if not reasons:
+                return "RAS"
+            return ", ".join(reasons)
+        except Exception as e:
+            _LOGGER.error("Error reading BikerSentinel reasoning: %s", e)
+            return "Error"

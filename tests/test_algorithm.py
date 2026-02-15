@@ -480,16 +480,16 @@ class TestBikerSentinelStatus:
         """Test status text mapping based on score."""
         from bikersentinel.sensor import BikerSentinelStatus
         
+        # Create a mock score entity with native_value
+        mock_score_entity = MagicMock()
+        mock_score_entity.native_value = score_value
+        
+        # Setup runtime_data with the mock score entity
+        mock_entry_status.runtime_data = {"score_entity": mock_score_entity}
+        
         status_sensor = BikerSentinelStatus(mock_hass_registry, mock_entry_status)
-        
-        # Mock entity registry
-        mock_registry = MagicMock()
-        mock_registry.async_get_entity_id.return_value = "sensor.bikersentinel_score"
-        
-        with patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry):
-            mock_hass_registry.states.get.return_value = MockState(str(score_value))
-            status = status_sensor.native_value
-            assert status == expected_status
+        status = status_sensor.native_value
+        assert status == expected_status
 
 
 if __name__ == "__main__":
