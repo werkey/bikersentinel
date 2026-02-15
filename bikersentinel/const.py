@@ -16,8 +16,8 @@ CONF_WEATHER_ENTITY = "weather_entity"
 
 # Trip Score Configuration
 CONF_TRIP_ENABLED = "trip_score_enabled"
-CONF_TRIP_WEATHER_START = "trip_weather_start"
-CONF_TRIP_WEATHER_END = "trip_weather_end"
+CONF_TRIP_HOME_WEATHER = "trip_home_weather"  # Weather at home (start location)
+CONF_TRIP_OFFICE_WEATHER = "trip_office_weather"  # Weather at office (end location)
 CONF_TRIP_DEPART_TIME = "trip_depart_time"
 CONF_TRIP_RETURN_TIME = "trip_return_time"
 

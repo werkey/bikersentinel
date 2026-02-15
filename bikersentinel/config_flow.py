@@ -32,8 +32,8 @@ from .const import (
     CONF_SENSOR_RAIN,
     CONF_WEATHER_ENTITY,
     CONF_TRIP_ENABLED,
-    CONF_TRIP_WEATHER_START,
-    CONF_TRIP_WEATHER_END,
+    CONF_TRIP_HOME_WEATHER,
+    CONF_TRIP_OFFICE_WEATHER,
     CONF_TRIP_DEPART_TIME,
     CONF_TRIP_RETURN_TIME,
 )
@@ -112,14 +112,14 @@ class BikerSentinelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Trip configuration schema
         trips_schema = vol.Schema(
             {
-                # --- OUTBOUND TRIP ---
-                vol.Required(CONF_TRIP_WEATHER_START): selector.EntitySelector(
+                # --- OUTBOUND TRIP (Home → Office) ---
+                vol.Required(CONF_TRIP_HOME_WEATHER): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="weather")
                 ),
                 vol.Required(CONF_TRIP_DEPART_TIME): str,  # Format: "HH:MM"
                 
-                # --- RETURN TRIP ---
-                vol.Required(CONF_TRIP_WEATHER_END): selector.EntitySelector(
+                # --- RETURN TRIP (Office → Home) ---
+                vol.Required(CONF_TRIP_OFFICE_WEATHER): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="weather")
                 ),
                 vol.Required(CONF_TRIP_RETURN_TIME): str,  # Format: "HH:MM"

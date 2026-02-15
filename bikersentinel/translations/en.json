@@ -20,11 +20,11 @@
             },
             "trips": {
                 "title": "BikerSentinel - Trip Configuration",
-                "description": "Configure your daily commute routes (weather at destination, departure & return times)",
+                "description": "Configure your daily commute routes (complete journey: home ↔ office)",
                 "data": {
-                    "trip_weather_start": "Weather at Destination (Outbound) - e.g., Office weather",
+                    "trip_home_weather": "Weather at Home",
                     "trip_depart_time": "Typical Departure Time (HH:MM)",
-                    "trip_weather_end": "Weather at Destination (Return) - e.g., Home weather",
+                    "trip_office_weather": "Weather at Office",
                     "trip_return_time": "Typical Return Time (HH:MM)"
                 }
             }

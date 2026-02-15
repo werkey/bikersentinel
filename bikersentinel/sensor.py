@@ -41,8 +41,8 @@ from .const import (
     CONF_SENSOR_RAIN,
     CONF_WEATHER_ENTITY,
     CONF_TRIP_ENABLED,
-    CONF_TRIP_WEATHER_START,
-    CONF_TRIP_WEATHER_END,
+    CONF_TRIP_HOME_WEATHER,
+    CONF_TRIP_OFFICE_WEATHER,
     CONF_TRIP_DEPART_TIME,
     CONF_TRIP_RETURN_TIME,
     DEFAULT_HEIGHT_CM,
@@ -481,79 +481,41 @@ class BikerSentinelTripScoreGo(SensorEntity):
 
     @property
     def native_value(self):
-        """Calculate score for outbound trip (based on destination weather)."""
+        """Calculate score for outbound trip (home → office on full route)."""
         try:
             # Get trip configuration
-            weather_entity = self._entry.data.get(CONF_TRIP_WEATHER_START)
+            home_weather_entity = self._entry.data.get(CONF_TRIP_HOME_WEATHER)
+            office_weather_entity = self._entry.data.get(CONF_TRIP_OFFICE_WEATHER)
             depart_time_str = self._entry.data.get(CONF_TRIP_DEPART_TIME)
             
-            if not weather_entity or not depart_time_str:
+            if not home_weather_entity or not office_weather_entity or not depart_time_str:
                 return None
             
-            # Get weather forecast at destination
-            weather_state = self._hass.states.get(weather_entity)
-            if not weather_state:
+            # Get weather at both locations
+            home_weather = self._hass.states.get(home_weather_entity)
+            office_weather = self._hass.states.get(office_weather_entity)
+            
+            if not home_weather or not office_weather:
                 return None
             
             reasons = []
-            score = 8.0  # Base trip score (good conditions assumed)
+            score = 8.0  # Base trip score
             
-            # Safety vetoes
-            if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
-                self._attr_extra_state_attributes = {"reasons": ["Dangerous Weather"]}
-                return 0.0
+            # Analyze HOME weather (starting point)
+            home_reasons = self._analyze_weather(home_weather, "Home")
+            score += home_reasons["malus"]
+            reasons.extend(home_reasons["reasons"])
             
-            # Weather conditions
-            if weather_state.state == "rainy":
-                score -= 2.0
-                reasons.append("Rain (-2)")
-            elif weather_state.state == "fog":
-                score -= 1.5
-                reasons.append("Fog (-1.5)")
-            elif weather_state.state == "cloudy":
-                score -= 0.5
-                reasons.append("Cloudy (-0.5)")
-            
-            # Temperature data (if available from weather entity)
-            try:
-                temp = weather_state.attributes.get("temperature")
-                if temp:
-                    temp = float(temp)
-                    if temp < 5:
-                        score -= 1.5
-                        reasons.append(f"Cold {temp}°C (-1.5)")
-                    elif temp > 30:
-                        score -= 0.5
-                        reasons.append(f"Hot {temp}°C (-0.5)")
-            except Exception:
-                pass
-            
-            # Wind data (if available)
-            try:
-                wind = weather_state.attributes.get("wind_speed")
-                if wind:
-                    wind = float(wind)
-                    if wind > 40:
-                        score -= 1.0
-                        reasons.append(f"Wind {wind}km/h (-1.0)")
-            except Exception:
-                pass
-            
-            # Humidity/Visibility
-            try:
-                humidity = weather_state.attributes.get("humidity")
-                if humidity:
-                    humidity = float(humidity)
-                    if humidity > 85:
-                        score -= 1.0
-                        reasons.append(f"High Humidity {humidity}% (-1.0)")
-            except Exception:
-                pass
+            # Analyze OFFICE weather (destination)
+            office_reasons = self._analyze_weather(office_weather, "Office")
+            score += office_reasons["malus"]
+            reasons.extend(office_reasons["reasons"])
             
             # Store reasons in attributes
             self._attr_extra_state_attributes = {
                 "reasons": reasons if reasons else ["Good conditions"],
-                "destination": weather_entity
+                "home_location": home_weather_entity,
+                "office_location": office_weather_entity,
             }
             
             return round(max(0, min(10, score)), 1)
@@ -561,6 +523,64 @@ class BikerSentinelTripScoreGo(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip score (go): %s", e)
             return None
+    
+    def _analyze_weather(self, weather_state, location_name):
+        """Analyze weather conditions and return malus + reasons."""
+        reasons = []
+        malus = 0.0
+        
+        # Safety vetoes
+        if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
+            return {"malus": -8.0, "reasons": [f"{location_name}: Dangerous Weather"]}
+        
+        # Weather conditions
+        if weather_state.state == "rainy":
+            malus -= 1.5
+            reasons.append(f"{location_name}: Rain (-1.5)")
+        elif weather_state.state == "fog":
+            malus -= 1.0
+            reasons.append(f"{location_name}: Fog (-1.0)")
+        elif weather_state.state == "cloudy":
+            malus -= 0.3
+            reasons.append(f"{location_name}: Cloudy (-0.3)")
+        
+        # Temperature
+        try:
+            temp = weather_state.attributes.get("temperature")
+            if temp:
+                temp = float(temp)
+                if temp < 5:
+                    malus -= 1.0
+                    reasons.append(f"{location_name}: Cold {temp}°C (-1.0)")
+                elif temp > 30:
+                    malus -= 0.3
+                    reasons.append(f"{location_name}: Hot {temp}°C (-0.3)")
+        except Exception:
+            pass
+        
+        # Wind
+        try:
+            wind = weather_state.attributes.get("wind_speed")
+            if wind:
+                wind = float(wind)
+                if wind > 40:
+                    malus -= 0.7
+                    reasons.append(f"{location_name}: Wind {wind}km/h (-0.7)")
+        except Exception:
+            pass
+        
+        # Humidity
+        try:
+            humidity = weather_state.attributes.get("humidity")
+            if humidity:
+                humidity = float(humidity)
+                if humidity > 85:
+                    malus -= 0.5
+                    reasons.append(f"{location_name}: Humidity {humidity}% (-0.5)")
+        except Exception:
+            pass
+        
+        return {"malus": malus, "reasons": reasons}
 
 
 class BikerSentinelTripScoreReturn(SensorEntity):
@@ -579,79 +599,41 @@ class BikerSentinelTripScoreReturn(SensorEntity):
 
     @property
     def native_value(self):
-        """Calculate score for return trip (based on destination weather)."""
+        """Calculate score for return trip (office → home on full route)."""
         try:
             # Get trip configuration
-            weather_entity = self._entry.data.get(CONF_TRIP_WEATHER_END)
+            home_weather_entity = self._entry.data.get(CONF_TRIP_HOME_WEATHER)
+            office_weather_entity = self._entry.data.get(CONF_TRIP_OFFICE_WEATHER)
             return_time_str = self._entry.data.get(CONF_TRIP_RETURN_TIME)
             
-            if not weather_entity or not return_time_str:
+            if not home_weather_entity or not office_weather_entity or not return_time_str:
                 return None
             
-            # Get weather forecast at destination
-            weather_state = self._hass.states.get(weather_entity)
-            if not weather_state:
+            # Get weather at both locations
+            home_weather = self._hass.states.get(home_weather_entity)
+            office_weather = self._hass.states.get(office_weather_entity)
+            
+            if not home_weather or not office_weather:
                 return None
             
             reasons = []
-            score = 8.0  # Base trip score (good conditions assumed)
+            score = 8.0  # Base trip score
             
-            # Safety vetoes
-            if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
-                self._attr_extra_state_attributes = {"reasons": ["Dangerous Weather"]}
-                return 0.0
+            # Analyze OFFICE weather (starting point for return)
+            office_reasons = self._analyze_weather(office_weather, "Office")
+            score += office_reasons["malus"]
+            reasons.extend(office_reasons["reasons"])
             
-            # Weather conditions
-            if weather_state.state == "rainy":
-                score -= 2.0
-                reasons.append("Rain (-2)")
-            elif weather_state.state == "fog":
-                score -= 1.5
-                reasons.append("Fog (-1.5)")
-            elif weather_state.state == "cloudy":
-                score -= 0.5
-                reasons.append("Cloudy (-0.5)")
-            
-            # Temperature data
-            try:
-                temp = weather_state.attributes.get("temperature")
-                if temp:
-                    temp = float(temp)
-                    if temp < 5:
-                        score -= 1.5
-                        reasons.append(f"Cold {temp}°C (-1.5)")
-                    elif temp > 30:
-                        score -= 0.5
-                        reasons.append(f"Hot {temp}°C (-0.5)")
-            except Exception:
-                pass
-            
-            # Wind data
-            try:
-                wind = weather_state.attributes.get("wind_speed")
-                if wind:
-                    wind = float(wind)
-                    if wind > 40:
-                        score -= 1.0
-                        reasons.append(f"Wind {wind}km/h (-1.0)")
-            except Exception:
-                pass
-            
-            # Humidity/Visibility
-            try:
-                humidity = weather_state.attributes.get("humidity")
-                if humidity:
-                    humidity = float(humidity)
-                    if humidity > 85:
-                        score -= 1.0
-                        reasons.append(f"High Humidity {humidity}% (-1.0)")
-            except Exception:
-                pass
+            # Analyze HOME weather (destination for return)
+            home_reasons = self._analyze_weather(home_weather, "Home")
+            score += home_reasons["malus"]
+            reasons.extend(home_reasons["reasons"])
             
             # Store reasons in attributes
             self._attr_extra_state_attributes = {
                 "reasons": reasons if reasons else ["Good conditions"],
-                "destination": weather_entity
+                "office_location": office_weather_entity,
+                "home_location": home_weather_entity,
             }
             
             return round(max(0, min(10, score)), 1)
@@ -659,6 +641,64 @@ class BikerSentinelTripScoreReturn(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error calculating trip score (return): %s", e)
             return None
+    
+    def _analyze_weather(self, weather_state, location_name):
+        """Analyze weather conditions and return malus + reasons."""
+        reasons = []
+        malus = 0.0
+        
+        # Safety vetoes
+        if weather_state.state in ["snowy", "lightning-rainy", "hail"]:
+            return {"malus": -8.0, "reasons": [f"{location_name}: Dangerous Weather"]}
+        
+        # Weather conditions
+        if weather_state.state == "rainy":
+            malus -= 1.5
+            reasons.append(f"{location_name}: Rain (-1.5)")
+        elif weather_state.state == "fog":
+            malus -= 1.0
+            reasons.append(f"{location_name}: Fog (-1.0)")
+        elif weather_state.state == "cloudy":
+            malus -= 0.3
+            reasons.append(f"{location_name}: Cloudy (-0.3)")
+        
+        # Temperature
+        try:
+            temp = weather_state.attributes.get("temperature")
+            if temp:
+                temp = float(temp)
+                if temp < 5:
+                    malus -= 1.0
+                    reasons.append(f"{location_name}: Cold {temp}°C (-1.0)")
+                elif temp > 30:
+                    malus -= 0.3
+                    reasons.append(f"{location_name}: Hot {temp}°C (-0.3)")
+        except Exception:
+            pass
+        
+        # Wind
+        try:
+            wind = weather_state.attributes.get("wind_speed")
+            if wind:
+                wind = float(wind)
+                if wind > 40:
+                    malus -= 0.7
+                    reasons.append(f"{location_name}: Wind {wind}km/h (-0.7)")
+        except Exception:
+            pass
+        
+        # Humidity
+        try:
+            humidity = weather_state.attributes.get("humidity")
+            if humidity:
+                humidity = float(humidity)
+                if humidity > 85:
+                    malus -= 0.5
+                    reasons.append(f"{location_name}: Humidity {humidity}% (-0.5)")
+        except Exception:
+            pass
+        
+        return {"malus": malus, "reasons": reasons}
 
 
 class BikerSentinelTripStatusGo(SensorEntity):

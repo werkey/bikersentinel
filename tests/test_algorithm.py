@@ -7,7 +7,7 @@ from bikersentinel.const import (
     CONF_HEIGHT, CONF_WEIGHT, CONF_BIKE_TYPE, CONF_EQUIPMENT,
     CONF_SENSITIVITY, CONF_RIDING_CONTEXT, CONF_SENSOR_TEMP,
     CONF_SENSOR_WIND, CONF_SENSOR_RAIN, CONF_WEATHER_ENTITY,
-    CONF_TRIP_ENABLED, CONF_TRIP_WEATHER_START, CONF_TRIP_WEATHER_END,
+    CONF_TRIP_ENABLED, CONF_TRIP_HOME_WEATHER, CONF_TRIP_OFFICE_WEATHER,
     CONF_TRIP_DEPART_TIME, CONF_TRIP_RETURN_TIME,
     DEFAULT_HEIGHT_CM, DEFAULT_WEIGHT_KG, DEFAULT_BIKE_TYPE, 
     DEFAULT_EQUIPMENT, DEFAULT_SENSITIVITY, DEFAULT_RIDING_CONTEXT,
@@ -346,8 +346,8 @@ class TestTripScoreEntities:
         entry.entry_id = "test_entry_with_trips"
         entry.data = {
             CONF_TRIP_ENABLED: True,
-            CONF_TRIP_WEATHER_START: "weather.morning",
-            CONF_TRIP_WEATHER_END: "weather.evening",
+            CONF_TRIP_HOME_WEATHER: "weather.morning",
+            CONF_TRIP_OFFICE_WEATHER: "weather.evening",
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
@@ -394,8 +394,8 @@ class TestTripStatusEntities:
         entry.entry_id = "test_entry_with_trips"
         entry.data = {
             CONF_TRIP_ENABLED: True,
-            CONF_TRIP_WEATHER_START: "weather.morning",
-            CONF_TRIP_WEATHER_END: "weather.evening",
+            CONF_TRIP_HOME_WEATHER: "weather.morning",
+            CONF_TRIP_OFFICE_WEATHER: "weather.evening",
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
@@ -451,8 +451,8 @@ class TestTripReasoningEntities:
         entry.entry_id = "test_entry_with_trips"
         entry.data = {
             CONF_TRIP_ENABLED: True,
-            CONF_TRIP_WEATHER_START: "weather.office",
-            CONF_TRIP_WEATHER_END: "weather.home",
+            CONF_TRIP_HOME_WEATHER: "weather.office",
+            CONF_TRIP_OFFICE_WEATHER: "weather.home",
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
