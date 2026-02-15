@@ -66,7 +66,7 @@ async def async_setup_entry(
 
     # Create the Score entity and store in runtime data for Status/Reasoning
     score_entity = BikerSentinelScore(hass, entry, height, weight, bike_type, equipment, sensitivity, riding_context)
-    entry.runtime_data = {"score_entity": score_entity}
+    runtime_data = {"score_entity": score_entity}
 
     # Build list of entities to add
     entities = [
@@ -80,11 +80,14 @@ async def async_setup_entry(
         entities.append(BikerSentinelNightMode(hass, entry))
     
     if precip_history_enabled:
-        entities.append(BikerSentinelPrecipitationHistory(hass, entry))
+        precip_entity = BikerSentinelPrecipitationHistory(hass, entry)
+        entities.append(precip_entity)
+        runtime_data["precip_entity"] = precip_entity
     
     if trip_enabled:
         entities.append(BikerSentinelTripScore(hass, entry))
 
+    entry.runtime_data = runtime_data
     async_add_entities(entities, True)
 
 
@@ -228,6 +231,22 @@ class BikerSentinelScore(SensorEntity):
             if p > 0:
                 score -= 3.0
                 reasons.append(f"Rain {p}mm (-3)")
+
+            # 6. PRECIPITATION HISTORY & ROAD STATE (Enhanced condition analysis)
+            precip_history_enabled = self._entry.data.get(CONF_PRECIP_HISTORY_ENABLED, False)
+            if precip_history_enabled:
+                try:
+                    # Find the PrecipitationHistory entity in entry runtime_data
+                    precip_entity = self._entry.runtime_data.get("precip_entity")
+                    if precip_entity:
+                        road_state = precip_entity.extra_state_attributes.get("road_state", "unknown")
+                        road_malus = precip_entity.extra_state_attributes.get("road_malus", 0.0)
+                        
+                        if road_malus < 0:  # Only apply negative malus
+                            score += road_malus
+                            reasons.append(f"Road {road_state.capitalize()} ({road_malus:.1f})")
+                except Exception as e:
+                    _LOGGER.debug("Could not apply precipitation history malus: %s", e)
 
             # Update attribute for the Reasoning sensor to read
             self._attr_extra_state_attributes["reasons"] = reasons if reasons else ["Perfect Conditions"]
@@ -383,6 +402,43 @@ class BikerSentinelPrecipitationHistory(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_precip_history"
         self._precip_data = []  # List of (timestamp, value) tuples
 
+    def _infer_road_state(self, precip_mm: float) -> tuple:
+        """
+        Infer road surface condition from precipitation and temperature.
+        
+        Returns: (road_state: str, traction_factor: float, malus: float)
+        """
+        try:
+            # Get temperature
+            temp_entity = self._entry.data.get(CONF_SENSOR_TEMP)
+            temp = 10.0  # default safe temperature
+            
+            if temp_entity:
+                temp_state = self._hass.states.get(temp_entity)
+                if temp_state and temp_state.state not in ["unknown", "unavailable"]:
+                    temp = float(temp_state.state)
+            
+            # Determine road state based on precipitation and temperature
+            if precip_mm >= 10 and temp < 0:
+                # Heavy rain + freezing = icy conditions
+                return ("icy", 0.5, -8.0)
+            elif precip_mm >= 10:
+                # Heavy rain = sludge/standing water
+                return ("sludge", 0.6, -6.0)
+            elif precip_mm >= 5:
+                # Moderate rain = wet roads
+                return ("wet", 0.8, -3.0)
+            elif precip_mm > 0:
+                # Light rain = damp
+                return ("damp", 0.9, -1.0)
+            else:
+                # No recent rain = dry
+                return ("dry", 1.0, 0.0)
+        
+        except Exception as e:
+            _LOGGER.error("Error inferring road state: %s", e)
+            return ("unknown", 1.0, 0.0)
+
     @property
     def native_value(self):
         """Return total precipitation in 24h window."""
@@ -400,6 +456,22 @@ class BikerSentinelPrecipitationHistory(SensorEntity):
         except Exception as e:
             _LOGGER.error("Error reading precipitation history: %s", e)
             return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return road surface condition and traction factor."""
+        try:
+            precip = self.native_value or 0.0
+            road_state, traction_factor, malus = self._infer_road_state(precip)
+            
+            return {
+                "road_state": road_state,
+                "traction_factor": round(traction_factor, 2),
+                "road_malus": malus,
+            }
+        except Exception as e:
+            _LOGGER.error("Error calculating road attributes: %s", e)
+            return {}
 
 
 class BikerSentinelTripScore(SensorEntity):

@@ -613,5 +613,56 @@ class TestBikerSentinelTripScore:
         assert score == 8.3 or score == 8.2  # Allow rounding variance
 
 
+class TestBikerSentinelRoadState:
+    """Test cases for Road State correlation."""
+    
+    @pytest.fixture
+    def mock_hass_road(self):
+        """Create mock HA for road state."""
+        hass = MagicMock()
+        return hass
+    
+    @pytest.fixture
+    def mock_entry_road(self):
+        """Create mock config entry for road state."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_road"
+        entry.data = {CONF_SENSOR_RAIN: "sensor.rain", CONF_SENSOR_TEMP: "sensor.temp"}
+        return entry
+    
+    @pytest.mark.parametrize("precip_mm,temp_c,expected_state,expected_malus", [
+        (0.0, 10, "dry", 0.0),               # No rain, normal temp
+        (2.0, 10, "damp", -1.0),             # Light rain
+        (5.0, 10, "wet", -3.0),              # Moderate rain
+        (10.0, 10, "sludge", -6.0),          # Heavy rain, normal temp
+        (10.0, -5, "icy", -8.0),             # Heavy rain, freezing temp
+        (15.0, -2, "icy", -8.0),             # Very heavy rain, freezing
+    ])
+    def test_road_state_inference(self, precip_mm, temp_c, expected_state, expected_malus, mock_hass_road, mock_entry_road):
+        """Test road state inference based on precipitation and temperature."""
+        from bikersentinel.sensor import BikerSentinelPrecipitationHistory
+        
+        road_sensor = BikerSentinelPrecipitationHistory(mock_hass_road, mock_entry_road)
+        
+        # Mock states
+        def mock_states_get(entity_id):
+            if "rain" in entity_id:
+                state = MagicMock()
+                state.state = str(precip_mm)
+                return state
+            elif "temp" in entity_id:
+                state = MagicMock()
+                state.state = str(temp_c)
+                return state
+            return None
+        
+        mock_hass_road.states.get = mock_states_get
+        
+        road_state, traction_factor, malus = road_sensor._infer_road_state(precip_mm)
+        
+        assert road_state == expected_state
+        assert malus == expected_malus
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

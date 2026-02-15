@@ -77,3 +77,23 @@ NIGHT_MODE_MALUS = {
 
 # Precipitation History window (hours) for correlation
 PRECIP_HISTORY_WINDOW = 24  # Track 24-hour history
+
+# Road State Conditions (Precipitation-based)
+# Thresholds for inferring road surface conditions from rainfall
+ROAD_STATE_THRESHOLDS = {
+    "dry": (0, 0.0),           # 0 - 0 mm
+    "damp": (0.1, 5.0),        # 0.1 - 5 mm
+    "wet": (5.0, 10.0),        # 5 - 10 mm
+    "sludge": (10.0, 99.0),    # 10+ mm (with normal temp)
+    "icy": (10.0, 99.0),       # 10+ mm (with temp < 0°C)
+}
+
+# Road State Malus Values (applied to score)
+ROAD_STATE_MALUS = {
+    "dry": 0.0,
+    "damp": -1.0,
+    "wet": -3.0,
+    "sludge": -6.0,
+    "icy": -8.0,
+    "unknown": 0.0,
+}
