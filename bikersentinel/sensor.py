@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from datetime import datetime, time
 
 from homeassistant.components.sensor import (
@@ -376,6 +377,25 @@ class BikerSentinelScore(SensorEntity):
             # Final score calculation
             final_score = round(max(0, min(10, score)), 1)
             
+            # Validate that reasons explain the full malus
+            total_actual_malus = 10.0 - final_score
+            total_reason_malus = 0.0
+            
+            for reason in reasons:
+                # Extract malus value: handles (-X.X) format
+                match = re.search(r'\((-?\d+\.?\d*)\)', reason)
+                if match:
+                    malus_val = float(match.group(1))
+                    # Values are negative (e.g., -1.5), we sum them as negatives
+                    total_reason_malus += malus_val
+            
+            # Compare: real malus (positive) vs sum of reason malus (negative)
+            # Example: score=4, real_malus=6, reason_mallus=-4, unexplained=6-4=2
+            unexplained = total_actual_malus - abs(total_reason_malus)
+            
+            if unexplained > 0.1:  # More than 0.1 point unexplained (rounding tolerance)
+                reasons.append(f"Other factors (-{unexplained:.1f})")
+            
             # Update reasons for Reasoning sensor
             self._attr_extra_state_attributes["reasons"] = reasons if reasons else ["Perfect Conditions"]
             
@@ -547,13 +567,33 @@ class BikerSentinelTripScoreGo(SensorEntity):
             reasons.extend(office_reasons["reasons"])
             
             # Store reasons in attributes
+            final_score = round(max(0, min(10, score)), 1)
+            
+            # Validate that reasons explain the full malus
+            # For trips, base is 8.0 instead of 10.0
+            total_actual_malus = 8.0 - final_score
+            total_reason_malus = 0.0
+            
+            for reason in reasons:
+                # Extract malus value: handles (-X.X) format
+                match = re.search(r'\((-?\d+\.?\d*)\)', reason)
+                if match:
+                    malus_val = float(match.group(1))
+                    total_reason_malus += malus_val
+            
+            # Compare: real malus (positive) vs sum of reason malus (negative)
+            unexplained = total_actual_malus - abs(total_reason_malus)
+            
+            if unexplained > 0.1:  # More than 0.1 point unexplained (rounding tolerance)
+                reasons.append(f"Other factors (-{unexplained:.1f})")
+            
             self._attr_extra_state_attributes = {
                 "reasons": reasons if reasons else ["Good conditions"],
                 "home_location": home_weather_entity,
                 "office_location": office_weather_entity,
             }
             
-            return round(max(0, min(10, score)), 1)
+            return final_score
             
         except Exception as e:
             _LOGGER.error("Error calculating trip score (go): %s", e)
@@ -671,13 +711,33 @@ class BikerSentinelTripScoreReturn(SensorEntity):
             reasons.extend(home_reasons["reasons"])
             
             # Store reasons in attributes
+            final_score = round(max(0, min(10, score)), 1)
+            
+            # Validate that reasons explain the full malus
+            # For trips, base is 8.0 instead of 10.0
+            total_actual_malus = 8.0 - final_score
+            total_reason_malus = 0.0
+            
+            for reason in reasons:
+                # Extract malus value: handles (-X.X) format
+                match = re.search(r'\((-?\d+\.?\d*)\)', reason)
+                if match:
+                    malus_val = float(match.group(1))
+                    total_reason_malus += malus_val
+            
+            # Compare: real malus (positive) vs sum of reason malus (negative)
+            unexplained = total_actual_malus - abs(total_reason_malus)
+            
+            if unexplained > 0.1:  # More than 0.1 point unexplained (rounding tolerance)
+                reasons.append(f"Other factors (-{unexplained:.1f})")
+            
             self._attr_extra_state_attributes = {
                 "reasons": reasons if reasons else ["Good conditions"],
                 "office_location": office_weather_entity,
                 "home_location": home_weather_entity,
             }
             
-            return round(max(0, min(10, score)), 1)
+            return final_score
             
         except Exception as e:
             _LOGGER.error("Error calculating trip score (return): %s", e)
