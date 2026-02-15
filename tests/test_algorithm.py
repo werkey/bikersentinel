@@ -301,12 +301,13 @@ class TestBikerSentinelReasoning:
         entry = MagicMock()
         entry.entry_id = "test_entry_123"
         
-        # Create a mock score entity with reasons
+        # Create a mock score entity with reasons and native_value
         mock_score = MagicMock()
         mock_score.extra_state_attributes = {
             "reasons": ["Wind 50km/h (-1.5)", "Cold Temperature (-2.0)"],
             "night_mode": "day",
         }
+        mock_score.native_value = 6.5  # 10.0 - 3.5 malus
         entry.runtime_data = {"score_entity": mock_score}
         
         return entry
@@ -318,15 +319,17 @@ class TestBikerSentinelReasoning:
         return BikerSentinelReasoning(mock_hass, mock_entry)
 
     def test_reasoning_primary_reason(self, reasoning_entity):
-        """Test that primary reason is returned as native_value."""
+        """Test that reasons are included in output."""
         value = reasoning_entity.native_value
-        assert "Wind" in value
+        # Should contain malus information
+        assert "Wind" in value or "3.5" in value
 
     def test_reasoning_all_reasons_in_attributes(self, reasoning_entity):
         """Test that all reasons are in extra_state_attributes."""
         attrs = reasoning_entity.extra_state_attributes
-        assert len(attrs["reasons"]) == 2
-        assert "Wind" in attrs["reasons"][0]
+        assert "all_factors" in attrs
+        assert len(attrs["all_factors"]) == 2
+        assert "Wind" in attrs["all_factors"][0]
 
 
 class TestTripScoreEntities:

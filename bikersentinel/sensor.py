@@ -448,33 +448,47 @@ class BikerSentinelReasoning(SensorEntity):
 
     @property
     def native_value(self):
-        """Return the main reason affecting the score."""
+        """Return all reasons affecting the score with total malus."""
         try:
             score_entity = self._entry.runtime_data.get("score_entity")
             if not score_entity:
                 return "Initializing..."
             
             reasons = score_entity.extra_state_attributes.get("reasons", [])
+            score = score_entity.native_value
             
-            if not reasons:
+            if not reasons or score is None:
                 return "Perfect Conditions"
             
-            # Return the primary reason
-            return reasons[0]
+            # Calculate total malus that explains the score
+            total_malus = 10.0 - score
+            
+            # Show all factors joined
+            if len(reasons) <= 2:
+                # If few reasons, show all with total
+                return f"{' + '.join(reasons)} = Total malus -{total_malus:.1f}"
+            else:
+                # If many reasons, show abbreviated form
+                return f"{len(reasons)} factors: {', '.join(reasons[:2])} ... Total -{total_malus:.1f}"
             
         except Exception:
             return "Calculating..."
 
     @property
     def extra_state_attributes(self):
-        """Return all reasons as attributes."""
+        """Return detailed breakdown of all factors affecting the score."""
         try:
             score_entity = self._entry.runtime_data.get("score_entity")
             if not score_entity:
                 return {}
             
+            score = score_entity.native_value
+            total_malus = (10.0 - score) if score is not None else 0.0
+            
             return {
-                "reasons": score_entity.extra_state_attributes.get("reasons", []),
+                "all_factors": score_entity.extra_state_attributes.get("reasons", []),
+                "total_malus": round(total_malus, 1),
+                "score_final": score,
                 "night_mode": score_entity.extra_state_attributes.get("night_mode", "day"),
                 "road_state": score_entity.extra_state_attributes.get("road_state", "unknown"),
                 "temperature_trend": score_entity.extra_state_attributes.get("temperature_trend", "stable"),
@@ -833,18 +847,26 @@ class BikerSentinelTripReasoningGo(SensorEntity):
 
     @property
     def native_value(self):
-        """Return the primary reason affecting the outbound trip score."""
+        """Return all reasons affecting the outbound trip score with total malus."""
         try:
             trip_score_go = self._entry.runtime_data.get("trip_score_go")
             if not trip_score_go:
                 return "Analyzing..."
             
-            # Get reasons from the score entity's attributes
             reasons = trip_score_go.extra_state_attributes.get("reasons", [])
+            score = trip_score_go.native_value
             
-            if reasons:
-                return reasons[0]
-            return "Good conditions"
+            if not reasons or score is None:
+                return "Good conditions"
+            
+            # Calculate total malus from base score (8.0 for trips)
+            total_malus = 8.0 - score
+            
+            # Show all factors
+            if len(reasons) <= 2:
+                return f"{' + '.join(reasons)} = -{total_malus:.1f}"
+            else:
+                return f"{len(reasons)} factors: {', '.join(reasons[:2])} ... = -{total_malus:.1f}"
             
         except Exception as e:
             _LOGGER.error("Error calculating trip reasoning (go): %s", e)
@@ -852,14 +874,18 @@ class BikerSentinelTripReasoningGo(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        """Return all reasons as attributes."""
+        """Return detailed breakdown of all factors affecting the trip score."""
         try:
             trip_score_go = self._entry.runtime_data.get("trip_score_go")
             if not trip_score_go:
                 return {}
             
+            score = trip_score_go.native_value
+            total_malus = (8.0 - score) if score is not None else 0.0
+            
             return {
-                "reasons": trip_score_go.extra_state_attributes.get("reasons", []),
+                "all_factors": trip_score_go.extra_state_attributes.get("reasons", []),
+                "total_malus": round(total_malus, 1),
                 "home_location": trip_score_go.extra_state_attributes.get("home_location", "unknown"),
                 "office_location": trip_score_go.extra_state_attributes.get("office_location", "unknown"),
             }
@@ -881,18 +907,26 @@ class BikerSentinelTripReasoningReturn(SensorEntity):
 
     @property
     def native_value(self):
-        """Return the primary reason affecting the return trip score."""
+        """Return all reasons affecting the return trip score with total malus."""
         try:
             trip_score_return = self._entry.runtime_data.get("trip_score_return")
             if not trip_score_return:
                 return "Analyzing..."
             
-            # Get reasons from the score entity's attributes
             reasons = trip_score_return.extra_state_attributes.get("reasons", [])
+            score = trip_score_return.native_value
             
-            if reasons:
-                return reasons[0]
-            return "Good conditions"
+            if not reasons or score is None:
+                return "Good conditions"
+            
+            # Calculate total malus from base score (8.0 for trips)
+            total_malus = 8.0 - score
+            
+            # Show all factors
+            if len(reasons) <= 2:
+                return f"{' + '.join(reasons)} = -{total_malus:.1f}"
+            else:
+                return f"{len(reasons)} factors: {', '.join(reasons[:2])} ... = -{total_malus:.1f}"
             
         except Exception as e:
             _LOGGER.error("Error calculating trip reasoning (return): %s", e)
@@ -900,14 +934,18 @@ class BikerSentinelTripReasoningReturn(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        """Return all reasons as attributes."""
+        """Return detailed breakdown of all factors affecting the trip score."""
         try:
             trip_score_return = self._entry.runtime_data.get("trip_score_return")
             if not trip_score_return:
                 return {}
             
+            score = trip_score_return.native_value
+            total_malus = (8.0 - score) if score is not None else 0.0
+            
             return {
-                "reasons": trip_score_return.extra_state_attributes.get("reasons", []),
+                "all_factors": trip_score_return.extra_state_attributes.get("reasons", []),
+                "total_malus": round(total_malus, 1),
                 "office_location": trip_score_return.extra_state_attributes.get("office_location", "unknown"),
                 "home_location": trip_score_return.extra_state_attributes.get("home_location", "unknown"),
             }
