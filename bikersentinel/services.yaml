@@ -1,0 +1,92 @@
+set_malus_ratios:
+  name: Set Malus Ratios
+  description: Update the malus ratios for weather conditions for a specific BikerSentinel integration
+  fields:
+    entry_id:
+      name: Integration Entry ID
+      description: The entry ID of the BikerSentinel integration to modify (found in config/.storage/core.config_entries)
+      example: "01KN5F4AHHVZ2BZ3DAFYVJ0ENM"
+      required: true
+      selector:
+        text:
+    rain_ratio:
+      name: Rain Ratio
+      description: Multiplier for rain penalty (0.0-5.0)
+      example: 1.5
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    fog_ratio:
+      name: Fog Ratio
+      description: Multiplier for fog penalty (0.0-5.0)
+      example: 2.0
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    cloudy_ratio:
+      name: Cloudy Ratio
+      description: Multiplier for cloudy conditions (0.0-5.0)
+      example: 1.0
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    cold_ratio:
+      name: Cold Ratio
+      description: Multiplier for cold temperature penalty (0.0-5.0)
+      example: 1.2
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    hot_ratio:
+      name: Hot Ratio
+      description: Multiplier for hot temperature penalty (0.0-5.0)
+      example: 1.0
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    wind_ratio:
+      name: Wind Ratio
+      description: Multiplier for wind penalty (0.0-5.0)
+      example: 1.8
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    humidity_ratio:
+      name: Humidity Ratio
+      description: Multiplier for humidity penalty (0.0-5.0)
+      example: 1.0
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    night_ratio:
+      name: Night Ratio
+      description: Multiplier for night mode penalty (0.0-5.0)
+      example: 2.5
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1
+    road_state_ratio:
+      name: Road State Ratio
+      description: Multiplier for road state penalty (0.0-5.0)
+      example: 1.0
+      selector:
+        number:
+          min: 0.0
+          max: 5.0
+          step: 0.1

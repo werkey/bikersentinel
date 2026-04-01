@@ -56,7 +56,7 @@ See [VERIFICATION_FEATURES.md](VERIFICATION_FEATURES.md) for detailed analysis o
 
 ## 🚀 Development Roadmap
 
-**Version** : 2.0beta | **Status** : 🎯 Beta-Ready (74 tests passing)
+**Version** : 2.0.0 | **Status** : ✅ Released (43 tests passing)
 
 ### ✅ Phase 1 : Foundations (Version 1.0.0)
 - [x] Custom component architecture.
@@ -72,9 +72,12 @@ See [VERIFICATION_FEATURES.md](VERIFICATION_FEATURES.md) for detailed analysis o
 - [x] **Humidity Impact Analysis** : Visibility degradation via high humidity.
 - [x] **Trip Score** : Weather-based route safety (departure & return conditions).
 
-### ✅ Phase 2+ : Intelligent Features (v2.0beta NEW)
+### ✅ Phase 2+ : Intelligent Features (v2.0.0 NEW)
 - [x] **Solar Blindness** : Glare alert based on sun azimuth (safe/caution/warning).
 - [x] **Commute Alert** : Pre-departure notification (configurable timing).
+- [x] **Device Grouping** : All entities properly grouped under a single BikerSentinel device.
+- [x] **Runtime Configuration** : Adjust malus ratios in real-time via options flow or service.
+- [x] **Multi-Instance Support** : Integration-specific configurations for multiple bikes/users.
 
 ### 📋 Phase 3 : Analytics & Insights (v3.0)
 - [ ] **Maintenance Advisor** : Chain lubrication reminders after rain.
@@ -126,6 +129,14 @@ Modify in `bikersentinel/sensor.py` (class `BikerSentinelScore`) :
 - Temperature thresholds for windchill
 - Wind thresholds for stability
 - Malus values (-3, -1.5, etc.)
+
+### Runtime Ratio Adjustment
+Use the `bikersentinel.set_malus_ratios` service to adjust malus ratios in real-time:
+- **Service**: `bikersentinel.set_malus_ratios`
+- **Required field**: `entry_id` (the integration instance ID)
+- **Fields**: Various ratio sliders (0.0-5.0 range) for different malus types
+
+This allows fine-tuning the algorithm behavior without restarting Home Assistant.
 
 ---
 

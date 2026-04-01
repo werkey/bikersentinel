@@ -9,8 +9,12 @@ from bikersentinel.const import (
     CONF_SENSOR_WIND, CONF_SENSOR_RAIN, CONF_WEATHER_ENTITY,
     CONF_TRIP_ENABLED, CONF_TRIP_HOME_WEATHER, CONF_TRIP_OFFICE_WEATHER,
     CONF_TRIP_DEPART_TIME, CONF_TRIP_RETURN_TIME,
+    CONF_RAIN_RATIO, CONF_FOG_RATIO, CONF_CLOUDY_RATIO, CONF_COLD_RATIO,
+    CONF_HOT_RATIO, CONF_WIND_RATIO, CONF_HUMIDITY_RATIO, CONF_NIGHT_RATIO, CONF_ROAD_STATE_RATIO,
     DEFAULT_HEIGHT_CM, DEFAULT_WEIGHT_KG, DEFAULT_BIKE_TYPE, 
     DEFAULT_EQUIPMENT, DEFAULT_SENSITIVITY, DEFAULT_RIDING_CONTEXT,
+    DEFAULT_RAIN_RATIO, DEFAULT_FOG_RATIO, DEFAULT_CLOUDY_RATIO, DEFAULT_COLD_RATIO,
+    DEFAULT_HOT_RATIO, DEFAULT_WIND_RATIO, DEFAULT_HUMIDITY_RATIO, DEFAULT_NIGHT_RATIO, DEFAULT_ROAD_STATE_RATIO,
     MACHINE_TYPES, EQUIPMENT_LEVELS, RIDING_CONTEXTS,
 )
 
@@ -50,6 +54,15 @@ class TestBikerSentinelScoreCore:
             CONF_WEATHER_ENTITY: "weather.home",
             CONF_RIDING_CONTEXT: "road",
             CONF_TRIP_ENABLED: False,
+            CONF_RAIN_RATIO: DEFAULT_RAIN_RATIO,
+            CONF_FOG_RATIO: DEFAULT_FOG_RATIO,
+            CONF_CLOUDY_RATIO: DEFAULT_CLOUDY_RATIO,
+            CONF_COLD_RATIO: DEFAULT_COLD_RATIO,
+            CONF_HOT_RATIO: DEFAULT_HOT_RATIO,
+            CONF_WIND_RATIO: DEFAULT_WIND_RATIO,
+            CONF_HUMIDITY_RATIO: DEFAULT_HUMIDITY_RATIO,
+            CONF_NIGHT_RATIO: DEFAULT_NIGHT_RATIO,
+            CONF_ROAD_STATE_RATIO: DEFAULT_ROAD_STATE_RATIO,
         }
         entry.runtime_data = {}
         return entry
@@ -64,7 +77,16 @@ class TestBikerSentinelScoreCore:
             bike_type="Roadster",
             equipment="Standard",
             sensitivity=3,
-            riding_context="road"
+            riding_context="road",
+            rain_ratio=DEFAULT_RAIN_RATIO,
+            fog_ratio=DEFAULT_FOG_RATIO,
+            cloudy_ratio=DEFAULT_CLOUDY_RATIO,
+            cold_ratio=DEFAULT_COLD_RATIO,
+            hot_ratio=DEFAULT_HOT_RATIO,
+            wind_ratio=DEFAULT_WIND_RATIO,
+            humidity_ratio=DEFAULT_HUMIDITY_RATIO,
+            night_ratio=DEFAULT_NIGHT_RATIO,
+            road_state_ratio=DEFAULT_ROAD_STATE_RATIO
         )
 
     def test_score_initialization(self, score_entity):
@@ -216,12 +238,116 @@ class TestBikerSentinelScoreCore:
             "sensor.wind": MockState("45"),  # High wind
             "sensor.rain": MockState("0"),
             "weather.home": MockState("sunny"),
+            "sun.sun": MockState("above_horizon", {"elevation": 45, "azimuth": 180}),
         }.get(entity_id)
         
         score = score_entity.native_value
         reasons = score_entity._attr_extra_state_attributes.get("reasons", [])
         assert len(reasons) > 0
         assert any("Wind" in reason for reason in reasons)
+
+    def test_score_reasons_match_score(self, mock_hass, score_entity):
+        """Ensure that total malus from reasons equals the calculated malus and score is clamped correctly."""
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "sensor.temp": MockState("10"),
+            "sensor.wind": MockState("50"),
+            "sensor.rain": MockState("2"),
+            "weather.home": MockState("rainy", {"humidity": 80}),
+            "sun.sun": MockState("above_horizon", {"elevation": 0, "azimuth": 180}),
+        }.get(entity_id)
+        
+        score = score_entity.native_value
+        reasons = score_entity._attr_extra_state_attributes.get("reasons", [])
+        total_malus = 0.0
+        for r in reasons:
+            if "(" in r and ")" in r:
+                try:
+                    val = float(r.split("(")[-1].rstrip(")"))
+                    total_malus += val
+                except ValueError:
+                    pass
+        # Score should be clamped between 0 and 10
+        expected_score = max(0, min(10, 10 + total_malus))
+        assert pytest.approx(score, rel=0.01) == pytest.approx(expected_score, rel=0.01)
+    @pytest.mark.parametrize("bike_type", MACHINE_TYPES)
+    def test_score_all_bike_types(self, mock_hass, bike_type):
+        """Test score calculation for all supported bike types."""
+        from bikersentinel.sensor import BikerSentinelScore
+        
+        entry = MagicMock()
+        entry.entry_id = "test"
+        entry.data = {
+            CONF_SENSOR_TEMP: "sensor.temp",
+            CONF_SENSOR_WIND: "sensor.wind",
+            CONF_SENSOR_RAIN: "sensor.rain",
+            CONF_RIDING_CONTEXT: "road",
+            CONF_RAIN_RATIO: DEFAULT_RAIN_RATIO,
+            CONF_FOG_RATIO: DEFAULT_FOG_RATIO,
+            CONF_CLOUDY_RATIO: DEFAULT_CLOUDY_RATIO,
+            CONF_COLD_RATIO: DEFAULT_COLD_RATIO,
+            CONF_HOT_RATIO: DEFAULT_HOT_RATIO,
+            CONF_WIND_RATIO: DEFAULT_WIND_RATIO,
+            CONF_HUMIDITY_RATIO: DEFAULT_HUMIDITY_RATIO,
+            CONF_NIGHT_RATIO: DEFAULT_NIGHT_RATIO,
+            CONF_ROAD_STATE_RATIO: DEFAULT_ROAD_STATE_RATIO,
+        }
+        entry.runtime_data = {}
+        
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "sensor.temp": MockState("20"),
+            "sensor.wind": MockState("15"),
+            "sensor.rain": MockState("0"),
+        }.get(entity_id)
+        
+        score = BikerSentinelScore(mock_hass, entry, 175, 80, bike_type, "Standard", 3, "road",
+                                   DEFAULT_RAIN_RATIO, DEFAULT_FOG_RATIO, DEFAULT_CLOUDY_RATIO,
+                                   DEFAULT_COLD_RATIO, DEFAULT_HOT_RATIO, DEFAULT_WIND_RATIO,
+                                   DEFAULT_HUMIDITY_RATIO, DEFAULT_NIGHT_RATIO, DEFAULT_ROAD_STATE_RATIO)
+        result = score.native_value
+        
+        assert result is not None
+        assert 0 <= result <= 10
+
+    @pytest.mark.parametrize("equipment", EQUIPMENT_LEVELS)
+    def test_score_all_equipment_levels(self, mock_hass, equipment):
+        """Test score calculation for all equipment levels."""
+        from bikersentinel.sensor import BikerSentinelScore
+        
+        entry = MagicMock()
+        entry.entry_id = "test"
+        entry.data = {
+            CONF_SENSOR_TEMP: "sensor.temp",
+            CONF_SENSOR_WIND: "sensor.wind",
+            CONF_SENSOR_RAIN: "sensor.rain",
+            CONF_RIDING_CONTEXT: "road",
+            CONF_RAIN_RATIO: DEFAULT_RAIN_RATIO,
+            CONF_FOG_RATIO: DEFAULT_FOG_RATIO,
+            CONF_CLOUDY_RATIO: DEFAULT_CLOUDY_RATIO,
+            CONF_COLD_RATIO: DEFAULT_COLD_RATIO,
+            CONF_HOT_RATIO: DEFAULT_HOT_RATIO,
+            CONF_WIND_RATIO: DEFAULT_WIND_RATIO,
+            CONF_HUMIDITY_RATIO: DEFAULT_HUMIDITY_RATIO,
+            CONF_NIGHT_RATIO: DEFAULT_NIGHT_RATIO,
+            CONF_ROAD_STATE_RATIO: DEFAULT_ROAD_STATE_RATIO,
+        }
+        entry.runtime_data = {}
+        
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "sensor.temp": MockState("5"),  # Cold
+            "sensor.wind": MockState("20"),
+            "sensor.rain": MockState("0"),
+        }.get(entity_id)
+        
+        score = BikerSentinelScore(mock_hass, entry, 175, 80, "Roadster", equipment, 3, "road",
+                                   DEFAULT_RAIN_RATIO, DEFAULT_FOG_RATIO, DEFAULT_CLOUDY_RATIO,
+                                   DEFAULT_COLD_RATIO, DEFAULT_HOT_RATIO, DEFAULT_WIND_RATIO,
+                                   DEFAULT_HUMIDITY_RATIO, DEFAULT_NIGHT_RATIO, DEFAULT_ROAD_STATE_RATIO)
+        result = score.native_value
+        
+        assert result is not None
+        # Heated equipment should reduce cold penalty
+        if equipment == "Heated":
+            assert result > 3.0  # Should have better score
 
 
 class TestBikerSentinelStatus:
@@ -354,8 +480,13 @@ class TestTripScoreEntities:
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
+        # Mock score entity
+        mock_score_entity = MagicMock()
+        mock_score_entity.native_value = 10.0
+        mock_score_entity.extra_state_attributes = {"reasons": []}
         # Initialize runtime_data with trip score entities
         entry.runtime_data = {
+            "score_entity": mock_score_entity,
             "trip_score_go": None,
             "trip_score_return": None,
         }
@@ -384,35 +515,6 @@ class TestTripScoreEntities:
         score = trip_score_go.native_value
         assert score == 0.0
 
-
-class TestTripStatusEntities:
-    """Test cases for Trip Status entities."""
-    
-    @pytest.fixture
-    def mock_hass(self):
-        """Create a mock Home Assistant instance."""
-        hass = MagicMock()
-        hass.states = MagicMock()
-        return hass
-    
-    @pytest.fixture
-    def mock_entry_with_trips(self):
-        """Create a config entry with trip configuration."""
-        entry = MagicMock()
-        entry.entry_id = "test_entry_with_trips"
-        entry.data = {
-            CONF_TRIP_ENABLED: True,
-            CONF_TRIP_HOME_WEATHER: "weather.morning",
-            CONF_TRIP_OFFICE_WEATHER: "weather.evening",
-            CONF_TRIP_DEPART_TIME: "08:00",
-            CONF_TRIP_RETURN_TIME: "18:00",
-        }
-        # Initialize runtime_data with trip score entities
-        entry.runtime_data = {
-            "trip_score_go": None,
-            "trip_score_return": None,
-        }
-        return entry
 
     @pytest.fixture
     def trip_status_go(self, mock_hass, mock_entry_with_trips):
@@ -469,8 +571,12 @@ class TestTripReasoningEntities:
             CONF_TRIP_DEPART_TIME: "08:00",
             CONF_TRIP_RETURN_TIME: "18:00",
         }
+        # Mock score entity
+        mock_score_entity = MagicMock()
+        mock_score_entity.native_value = 10.0
         # Initialize runtime_data with trip score entities
         entry.runtime_data = {
+            "score_entity": mock_score_entity,
             "trip_score_go": None,
             "trip_score_return": None,
         }
@@ -506,69 +612,33 @@ class TestTripReasoningEntities:
         reasoning = trip_reasoning_return.native_value
         assert reasoning in ["Analyzing...", "Calculating..."]
 
-
-class TestConfigurationVariations:
-    """Test various configuration combinations."""
-    
-    @pytest.fixture
-    def mock_hass(self):
-        """Create a mock Home Assistant instance."""
-        hass = MagicMock()
-        hass.states = MagicMock()
-        return hass
-
-    @pytest.mark.parametrize("bike_type", MACHINE_TYPES)
-    def test_score_all_bike_types(self, mock_hass, bike_type):
-        """Test score calculation for all supported bike types."""
-        from bikersentinel.sensor import BikerSentinelScore
-        
-        entry = MagicMock()
-        entry.entry_id = "test"
-        entry.data = {
-            CONF_SENSOR_TEMP: "sensor.temp",
-            CONF_SENSOR_WIND: "sensor.wind",
-            CONF_SENSOR_RAIN: "sensor.rain",
-            CONF_RIDING_CONTEXT: "road",
+    def test_trip_reasoning_go_matches_score_drop(self, mock_hass, mock_entry_with_trips, trip_reasoning_go):
+        """Test that trip reasoning total matches score drop from 10.0."""
+        # Mock trip score entity
+        mock_trip_score = MagicMock()
+        mock_trip_score.native_value = 7.0
+        mock_trip_score.extra_state_attributes = {
+            "reasons": ["Home: Rain (-1.5)", "Home: Humidity 90.0% (-0.5)", "Office: Cold 6.4°C (-1.0)"]
         }
-        entry.runtime_data = {}
+        mock_entry_with_trips.runtime_data["trip_score_go"] = mock_trip_score
         
-        mock_hass.states.get.side_effect = lambda entity_id: {
-            "sensor.temp": MockState("20"),
-            "sensor.wind": MockState("15"),
-            "sensor.rain": MockState("0"),
-        }.get(entity_id)
-        
-        score = BikerSentinelScore(mock_hass, entry, 175, 80, bike_type, "Standard", 3, "road")
-        result = score.native_value
-        
-        assert result is not None
-        assert 0 <= result <= 10
+        reasoning = trip_reasoning_go.native_value
+        # Should show -3.0 (10.0 - 7.0)
+        assert "-3.0" in reasoning
 
-    @pytest.mark.parametrize("equipment", EQUIPMENT_LEVELS)
-    def test_score_all_equipment_levels(self, mock_hass, equipment):
-        """Test score calculation for all equipment levels."""
-        from bikersentinel.sensor import BikerSentinelScore
-        
-        entry = MagicMock()
-        entry.entry_id = "test"
-        entry.data = {
-            CONF_SENSOR_TEMP: "sensor.temp",
-            CONF_SENSOR_WIND: "sensor.wind",
-            CONF_SENSOR_RAIN: "sensor.rain",
-            CONF_RIDING_CONTEXT: "road",
+    def test_trip_reasoning_return_matches_score_drop(self, mock_hass, mock_entry_with_trips, trip_reasoning_return):
+        """Test that trip reasoning total matches score drop from 10.0."""
+        # Mock trip score entity
+        mock_trip_score = MagicMock()
+        mock_trip_score.native_value = 7.0
+        mock_trip_score.extra_state_attributes = {
+            "reasons": ["Office: Rain (-1.5)", "Home: Humidity 90.0% (-0.5)", "Home: Cold 6.4°C (-1.0)"]
         }
-        entry.runtime_data = {}
+        mock_entry_with_trips.runtime_data["trip_score_return"] = mock_trip_score
         
-        mock_hass.states.get.side_effect = lambda entity_id: {
-            "sensor.temp": MockState("5"),  # Cold
-            "sensor.wind": MockState("20"),
-            "sensor.rain": MockState("0"),
-        }.get(entity_id)
-        
-        score = BikerSentinelScore(mock_hass, entry, 175, 80, "Roadster", equipment, 3, "road")
-        result = score.native_value
-        
-        assert result is not None
-        # Heated equipment should reduce cold penalty
-        if equipment == "Heated":
-            assert result > 3.0  # Should have better score
+        reasoning = trip_reasoning_return.native_value
+        # Should show -3.0 (10.0 - 7.0)
+        assert "-3.0" in reasoning
+
+
+

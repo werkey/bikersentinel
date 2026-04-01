@@ -21,6 +21,17 @@ CONF_TRIP_OFFICE_WEATHER = "trip_office_weather"  # Weather at office (end locat
 CONF_TRIP_DEPART_TIME = "trip_depart_time"
 CONF_TRIP_RETURN_TIME = "trip_return_time"
 
+# Malus Ratio Configuration (User-adjustable multipliers)
+CONF_RAIN_RATIO = "rain_malus_ratio"
+CONF_FOG_RATIO = "fog_malus_ratio"
+CONF_CLOUDY_RATIO = "cloudy_malus_ratio"
+CONF_COLD_RATIO = "cold_malus_ratio"
+CONF_HOT_RATIO = "hot_malus_ratio"
+CONF_WIND_RATIO = "wind_malus_ratio"
+CONF_HUMIDITY_RATIO = "humidity_malus_ratio"
+CONF_NIGHT_RATIO = "night_malus_ratio"
+CONF_ROAD_STATE_RATIO = "road_state_malus_ratio"
+
 # Note: Night Mode, Precipitation History, Temperature/Humidity Trends, and Solar Blindness
 # are now always active and internal - no user toggles needed
 
@@ -31,6 +42,17 @@ DEFAULT_BIKE_TYPE = "Roadster"
 DEFAULT_EQUIPMENT = "Standard"
 DEFAULT_SENSITIVITY = 3  # 1=Low (Viking), 3=Normal, 5=High (Cold)
 DEFAULT_RIDING_CONTEXT = "road"
+
+# Malus Ratio Defaults (1.0 = standard sensitivity)
+DEFAULT_RAIN_RATIO = 1.0
+DEFAULT_FOG_RATIO = 1.0
+DEFAULT_CLOUDY_RATIO = 1.0
+DEFAULT_COLD_RATIO = 1.0
+DEFAULT_HOT_RATIO = 1.0
+DEFAULT_WIND_RATIO = 1.0
+DEFAULT_HUMIDITY_RATIO = 1.0
+DEFAULT_NIGHT_RATIO = 1.0
+DEFAULT_ROAD_STATE_RATIO = 1.0
 
 # Available Selections (Internal values)
 # Note: These values are stored in config, not displayed directly if translated

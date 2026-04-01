@@ -4,5 +4,6 @@
   "version": "2.0.0",
   "documentation": "https://github.com/werkey/bikersentinel",
   "config_flow": true,
+  "options_flow": true,
   "iot_class": "local_polling"
 }
